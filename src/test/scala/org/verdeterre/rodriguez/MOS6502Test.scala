@@ -1,0 +1,548 @@
+package org.verdeterre.rodriguez
+
+import org.junit._
+import org.junit.Assert._
+
+class MOS6502Test {
+
+    val mem = new MemoryMapper
+    val cpu = new MOS6502(mem)
+
+    // Utility ----------------------------------------------------
+
+    @Test def testBoolToInt() {
+        assertEquals(0, cpu.boolToInt(false))
+        assertEquals(1, cpu.boolToInt(true))
+    }
+
+    @Test def testIntToBool() {
+        assertEquals(false, cpu.intToBool(0))
+        assertEquals(true,  cpu.intToBool(1))
+        assertEquals(true,  cpu.intToBool(-99))
+    }
+
+    @Test def testPadToTwoBytes() {
+        assertEquals(0x0000, cpu.padToTwoBytes(0x00))
+        assertEquals(0x007F, cpu.padToTwoBytes(0x7F))
+        assertEquals(0xFFAB, cpu.padToTwoBytes(0xAB))
+    }
+
+    // Flags ------------------------------------------------------
+
+    @Test def testSetFlag() {
+        cpu.p = 0
+        cpu.setFlag(cpu.C_FLAG)
+        cpu.setFlag(cpu.N_FLAG)
+        assertEquals(cpu.C_FLAG | cpu.N_FLAG, cpu.p)
+    }
+
+    @Test def clearFlag() {
+        cpu.p = cpu.C_FLAG | cpu.N_FLAG
+        cpu.clearFlag(cpu.N_FLAG)
+        assertEquals(cpu.C_FLAG, cpu.p)
+    }
+
+    @Test def isFlagSet() {
+        cpu.p = cpu.C_FLAG | cpu.N_FLAG
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.I_FLAG))
+        assert(! cpu.isFlagSet(cpu.D_FLAG))
+        assert(! cpu.isFlagSet(cpu.B_FLAG))
+        assert(! cpu.isFlagSet(cpu.U_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    // Memory functions -------------------------------------------
+
+    @Test def testReadByte() {
+        mem.write(0xABCD, 0xAC)
+        assertEquals(0xAC, cpu.readByte(0xABCD))
+    }
+
+    @Test def testWriteByte() {
+        cpu.writeByte(0x1234, 0xBD)
+        assertEquals(0xBD, mem.read(0x1234))
+    }
+
+    @Test def testReadNextByte() {
+        mem.write(0xABCD, 0x4B)
+        cpu.c = 0xABCD
+        assertEquals(0x4B, cpu.readNextByte)
+        assertEquals(0xABCE, cpu.c)
+    }
+
+    @Test def testReadNextTwoBytes() {
+        mem.write(0x1324, 0xCD)
+        mem.write(0x1325, 0xAB)
+        cpu.c = 0x1324
+        assertEquals(0xABCD, cpu.readNextTwoBytes)
+        assertEquals(0x1326, cpu.c)
+    }
+
+    // Stack functions --------------------------------------------
+
+    @Test def testPushByte() {
+        mem.clear(0x0100, 0x01FF)
+        cpu.s = 0xFC
+        cpu.pushByte(0xEE)
+        assertEquals(0xEE, mem.read(0x01FC))
+        assertEquals(0xFB, cpu.s)
+    }
+
+    @Test def testPushTwoBytes() {
+        mem.clear(0x0100, 0x01FF)
+        cpu.s = 0xFC
+        cpu.pushTwoBytes(0xABCD)
+        assertEquals(0xCD, mem.read(0x01FB))
+        assertEquals(0xAB, mem.read(0x01FC))
+        assertEquals(0xFA, cpu.s)
+    }
+
+    @Test def testPullByte() {
+        mem.clear(0x0100, 0x01FF)
+        mem.write(0x01FC, 0x99)
+        cpu.s = 0xFB
+        assertEquals(0x99, cpu.pullByte)
+        assertEquals(0xFC, cpu.s)
+    }
+
+    @Test def testPullTwoBytes() {
+        mem.clear(0x0100, 0x01FF)
+        mem.write(0x01FB, 0xBD)
+        mem.write(0x01FC, 0xAC)
+        cpu.s = 0xFA
+        assertEquals(0xACBD, cpu.pullTwoBytes)
+        assertEquals(0xFC, cpu.s)
+    }
+
+    // Service Requests -------------------------------------------
+
+    @Test def testHandleReset() {
+        mem.write(0xFFFC, 0x34)
+        mem.write(0xFFFD, 0x12)
+        cpu.cycles = 0
+        cpu.handleReset()
+        assertEquals(0x1234, cpu.c)
+        assertEquals(0x24, cpu.p)
+        assertEquals(6, cpu.cycles)
+    }
+
+    @Test def testHandleInterrupt() {
+        mem.write(0xFFFE, 0xCD)
+        mem.write(0xFFFF, 0xAB)
+        cpu.c = 0x1234
+        cpu.p = 0xA1
+        cpu.s = 0xFF
+        cpu.cycles = 0
+        cpu.handleInterrupt()
+        assertEquals(0xABCD, cpu.c)
+        assertEquals(0xA5, cpu.p)
+        assertEquals(0xFC, cpu.s)
+        assertEquals(0xA1, mem.read(0x01FD))
+        assertEquals(0x34, mem.read(0x01FE))
+        assertEquals(0x12, mem.read(0x01FF))
+        assertEquals(8, cpu.cycles)
+    }
+
+    @Test def testHandleNonmaskableInterrupt() {
+        mem.write(0xFFFA, 0xCD)
+        mem.write(0xFFFB, 0xAB)
+        cpu.c = 0x1234
+        cpu.p = 0xA1
+        cpu.s = 0xFF
+        cpu.cycles = 0
+        cpu.handleNonmaskableInterrupt()
+        assertEquals(0xABCD, cpu.c)
+        assertEquals(0xA5, cpu.p)
+        assertEquals(0xFC, cpu.s)
+        assertEquals(0xA1, mem.read(0x01FD))
+        assertEquals(0x34, mem.read(0x01FE))
+        assertEquals(0x12, mem.read(0x01FF))
+        assertEquals(8, cpu.cycles)
+    }
+
+    // Addressing -------------------------------------------------
+
+    @Test def testCrossesPageBoundary() {
+        assert(! cpu.crossesPageBoundary(0x1234, 0x12))
+        assert(cpu.crossesPageBoundary(0x1234, 0xDE))
+    }
+
+    @Test def testModeAccumulator() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        cpu.a = 0xAB
+        cpu.modeAccumulator()
+        assertEquals(0x0000, cpu.address)
+        assertEquals(0xAB, cpu.operand)
+        assertEquals(0x1234, cpu.c)
+    }
+
+    @Test def testModeImmediate() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        mem.write(0x1234, 0xAB)
+        cpu.modeImmediate()
+        assertEquals(0x0000, cpu.address)
+        assertEquals(0xAB, cpu.operand)
+        assertEquals(0x1235, cpu.c)
+    }
+
+    @Test def testModeZeroPage() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        mem.write(0x1234, 0x56)
+        mem.write(0x0056, 0xCC)
+        cpu.modeZeroPage()
+        assertEquals(0x0056, cpu.address)
+        assertEquals(0xCC, cpu.operand)
+        assertEquals(0x1235, cpu.c)
+
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        mem.write(0x1234, 0x56)
+        mem.write(0x0056, 0xCC)
+        mem.write(0x0020, 0xAA)
+        cpu.modeZeroPage(0xCA)
+        assertEquals(0x0020, cpu.address)
+        assertEquals(0xAA, cpu.operand)
+        assertEquals(0x1235, cpu.c)
+    }
+
+    @Test def testModeZeroPageX() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        cpu.x = 0x23
+        mem.write(0x1234, 0x56)
+        mem.write(0x0079, 0xCC)
+        cpu.modeZeroPageX()
+        assertEquals(0x0079, cpu.address)
+        assertEquals(0xCC, cpu.operand)
+        assertEquals(0x1235, cpu.c)
+    }
+
+    @Test def testModeZeroPageY() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        cpu.y = 0x42
+        mem.write(0x1234, 0x56)
+        mem.write(0x0098, 0xDE)
+        cpu.modeZeroPageY()
+        assertEquals(0x0098, cpu.address)
+        assertEquals(0xDE, cpu.operand)
+        assertEquals(0x1235, cpu.c)
+    }
+
+    @Test def testModeAbsolute() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        mem.write(0x1234, 0xCD)
+        mem.write(0x1235, 0xAB)
+        mem.write(0xABCD, 0xEF)
+        cpu.modeAbsolute()
+        assertEquals(0xABCD, cpu.address)
+        assertEquals(0xEF, cpu.operand)
+        assertEquals(0x1236, cpu.c)
+    }
+
+    @Test def testModeAbsoluteX() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        cpu.x = 0x22
+        mem.write(0x1234, 0xCD)
+        mem.write(0x1235, 0xAB)
+        mem.write(0xABEF, 0xEF)
+        cpu.modeAbsoluteX()
+        assertEquals(0xABEF, cpu.address)
+        assertEquals(0xEF, cpu.operand)
+        assertEquals(0x1236, cpu.c)
+
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        cpu.x = 0x22
+        mem.write(0x1234, 0xCD)
+        mem.write(0x1235, 0xAB)
+        mem.write(0xABEF, 0xEF)
+        cpu.modeAbsoluteX(true)
+        assertEquals(0xABEF, cpu.address)
+        assertEquals(0xEF, cpu.operand)
+        assertEquals(0x1236, cpu.c)
+        assertEquals(0, cpu.cycles)
+
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.cycles = 0
+        cpu.c = 0x1234
+        cpu.x = 0x52
+        mem.write(0x1234, 0xCD)
+        mem.write(0x1235, 0xAB)
+        mem.write(0xAC1F, 0xEF)
+        cpu.modeAbsoluteX(true)
+        assertEquals(0xAC1F, cpu.address)
+        assertEquals(0xEF, cpu.operand)
+        assertEquals(0x1236, cpu.c)
+        assertEquals(1, cpu.cycles)
+    }
+
+    @Test def testModeAbsoluteY() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        cpu.y = 0x31
+        mem.write(0x1234, 0xCD)
+        mem.write(0x1235, 0xAB)
+        mem.write(0xABFE, 0xEF)
+        cpu.modeAbsoluteY()
+        assertEquals(0xABFE, cpu.address)
+        assertEquals(0xEF, cpu.operand)
+        assertEquals(0x1236, cpu.c)
+    }
+
+    @Test def testModeIndexedIndirect() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        cpu.x = 0x4B
+        mem.write(0x1234, 0x2A)
+        mem.write(0x0075, 0xB4)
+        mem.write(0x0076, 0x12)
+        mem.write(0x12B4, 0xEA)
+        cpu.modeIndexedIndirect()
+        assertEquals(0x12B4, cpu.address)
+        assertEquals(0xEA, cpu.operand)
+        assertEquals(0x1235, cpu.c)
+    }
+
+    @Test def testModeIndirectIndexed() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        cpu.y = 0x4B
+        mem.write(0x1234, 0x2A)
+        mem.write(0x002A, 0xB4)
+        mem.write(0x002B, 0x12)
+        mem.write(0x12B4, 0x99)
+        mem.write(0x12FF, 0xEA)
+        cpu.modeIndirectIndexed()
+        assertEquals(0x12FF, cpu.address)
+        assertEquals(0xEA, cpu.operand)
+        assertEquals(0x1235, cpu.c)
+    }
+
+    @Test def testModeIndirectAbsolute() {
+        cpu.address = 0x0000
+        cpu.operand = 0x00
+        cpu.c = 0x1234
+        mem.write(0x1234, 0x03)
+        mem.write(0x1235, 0x02)
+        mem.write(0x0203, 0xBC)
+        mem.write(0x0204, 0x04)
+        cpu.modeIndirectAbsolute()
+        assertEquals(0x04BC, cpu.address)
+        assertEquals(0x00, cpu.operand)
+        assertEquals(0x1236, cpu.c)
+    }
+
+    // Instructions -----------------------------------------------
+
+    @Test def testAdc() {
+        cpu.a = 0x01
+        cpu.operand = 0x00
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0x01, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x00
+        cpu.operand = 0x00
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0x00, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0xAE
+        cpu.operand = 0x52
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0xAE
+        cpu.operand = 0x51
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0xFF, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0xAE
+        cpu.operand = 0xA1
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0x4F, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x73
+        cpu.operand = 0x6A
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0xDD, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testAnd() {
+        cpu.a = 0x01
+        cpu.operand = 0x01
+        cpu.p = 0
+        cpu.and()
+        assertEquals(0x01, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x41
+        cpu.operand = 0x12
+        cpu.p = 0
+        cpu.and()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0xB3
+        cpu.operand = 0xE2
+        cpu.p = 0
+        cpu.and()
+        assertEquals(0xA2, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testAsl() {
+        cpu.address = 0x1234
+        cpu.operand = 0x00
+        cpu.mode = AddressingMode.ZeroPage
+        cpu.a = 0
+        cpu.p = 0
+        cpu.asl()
+        assertEquals(0x00, cpu.a)
+        assertEquals(0x00, mem.read(0x1234))
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.address = 0x1234
+        cpu.operand = 0x3A
+        cpu.mode = AddressingMode.ZeroPage
+        cpu.a = 0
+        cpu.p = 0
+        cpu.asl()
+        assertEquals(0x00, cpu.a)
+        assertEquals(0x74, mem.read(0x1234))
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.address = 0x1234
+        cpu.operand = 0x84
+        cpu.mode = AddressingMode.ZeroPage
+        cpu.a = 0
+        cpu.p = 0
+        cpu.asl()
+        assertEquals(0x00, cpu.a)
+        assertEquals(0x08, mem.read(0x1234))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.address = 0x1234
+        cpu.operand = 0xC4
+        cpu.mode = AddressingMode.ZeroPage
+        cpu.a = 0
+        cpu.p = 0
+        cpu.asl()
+        assertEquals(0x00, cpu.a)
+        assertEquals(0x88, mem.read(0x1234))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0x1234, 0x00)
+        cpu.address = 0x1234
+        cpu.operand = 0xC4
+        cpu.mode = AddressingMode.Accumulator
+        cpu.a = 0xC4
+        cpu.p = 0
+        cpu.asl()
+        assertEquals(0x88, cpu.a)
+        assertEquals(0x00, mem.read(0x1234))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testBranch() {
+        cpu.c = 0xABCD
+        cpu.address = 0xABDF
+        cpu.operand = 0x12
+        cpu.mode = AddressingMode.Relative
+        cpu.cycles = 2
+        cpu.branch(false)
+        assertEquals(0xABCD, cpu.c)
+        assertEquals(2, cpu.cycles)
+
+        cpu.c = 0xABCD
+        cpu.address = 0xAC0F
+        cpu.operand = 0x42
+        cpu.mode = AddressingMode.Relative
+        cpu.cycles = 2
+        cpu.branch(false)
+        assertEquals(0xABCD, cpu.c)
+        assertEquals(2, cpu.cycles)
+
+        cpu.c = 0xABCD
+        cpu.address = 0xABDF
+        cpu.operand = 0x12
+        cpu.mode = AddressingMode.Relative
+        cpu.cycles = 2
+        cpu.branch(true)
+        assertEquals(0xABDF, cpu.c)
+        assertEquals(3, cpu.cycles)
+
+        cpu.c = 0xABCD
+        cpu.address = 0xAC0F
+        cpu.operand = 0x42
+        cpu.mode = AddressingMode.Relative
+        cpu.cycles = 2
+        cpu.branch(true)
+        assertEquals(0xAC0F, cpu.c)
+        assertEquals(4, cpu.cycles)
+    }
+
+}

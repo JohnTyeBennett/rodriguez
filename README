@@ -1,0 +1,3 @@
+Rodriguez is a simulator of the famous MOS Technology 6502 microprocessor and is named after Bender Bending Rodriguez, the second-most famous synthetic individual powered by the chip (the most famous apparently being the original Terminator).
+
+I began this project for two reasons--first, to learn about emulation in general; and second, as a focus for learning the Scala programming language. The current code is a (currently incomplete) simpler and improved reimplementation of my first effort.
