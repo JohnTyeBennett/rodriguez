@@ -447,7 +447,7 @@ class MOS6502Test {
     @Test def testAsl() {
         cpu.address = 0x1234
         cpu.operand = 0x00
-        cpu.mode = AddressingMode.ZeroPage
+        cpu.mode = AddressingMode.Absolute
         cpu.a = 0
         cpu.p = 0
         cpu.asl()
@@ -459,7 +459,7 @@ class MOS6502Test {
 
         cpu.address = 0x1234
         cpu.operand = 0x3A
-        cpu.mode = AddressingMode.ZeroPage
+        cpu.mode = AddressingMode.Absolute
         cpu.a = 0
         cpu.p = 0
         cpu.asl()
@@ -471,7 +471,7 @@ class MOS6502Test {
 
         cpu.address = 0x1234
         cpu.operand = 0x84
-        cpu.mode = AddressingMode.ZeroPage
+        cpu.mode = AddressingMode.Absolute
         cpu.a = 0
         cpu.p = 0
         cpu.asl()
@@ -483,7 +483,7 @@ class MOS6502Test {
 
         cpu.address = 0x1234
         cpu.operand = 0xC4
-        cpu.mode = AddressingMode.ZeroPage
+        cpu.mode = AddressingMode.Absolute
         cpu.a = 0
         cpu.p = 0
         cpu.asl()
@@ -936,7 +936,7 @@ class MOS6502Test {
 
     @Test def testLsr() {
         mem.write(0x1234, 0x00)
-        cpu.mode = AddressingMode.ZeroPage
+        cpu.mode = AddressingMode.Absolute
         cpu.address = 0x1234
         cpu.operand = 0x00
         cpu.a = 0x12
@@ -949,7 +949,7 @@ class MOS6502Test {
         assert(! cpu.isFlagSet(cpu.N_FLAG))
 
         mem.write(0x1234, 0x01)
-        cpu.mode = AddressingMode.ZeroPage
+        cpu.mode = AddressingMode.Absolute
         cpu.address = 0x1234
         cpu.operand = 0x01
         cpu.a = 0x12
@@ -962,7 +962,7 @@ class MOS6502Test {
         assert(! cpu.isFlagSet(cpu.N_FLAG))
 
         mem.write(0x1234, 0x02)
-        cpu.mode = AddressingMode.ZeroPage
+        cpu.mode = AddressingMode.Absolute
         cpu.address = 0x1234
         cpu.operand = 0x02
         cpu.a = 0x12
@@ -975,7 +975,7 @@ class MOS6502Test {
         assert(! cpu.isFlagSet(cpu.N_FLAG))
 
         mem.write(0x1234, 0x03)
-        cpu.mode = AddressingMode.ZeroPage
+        cpu.mode = AddressingMode.Absolute
         cpu.address = 0x1234
         cpu.operand = 0x03
         cpu.a = 0x12
@@ -986,6 +986,249 @@ class MOS6502Test {
         assert(  cpu.isFlagSet(cpu.C_FLAG))
         assert(! cpu.isFlagSet(cpu.Z_FLAG))
         assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0x1234, 0x12)
+        cpu.mode = AddressingMode.Accumulator
+        cpu.address = 0x1234
+        cpu.operand = 0x01
+        cpu.a = 0x01
+        cpu.p = 0
+        cpu.lsr()
+        assertEquals(0x00, cpu.a)
+        assertEquals(0x12, mem.read(0x1234))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testOra() {
+        cpu.operand = 0x00
+        cpu.a = 0x00
+        cpu.p = 0
+        cpu.ora()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0x21
+        cpu.a = 0x38
+        cpu.p = 0
+        cpu.ora()
+        assertEquals(0x39, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0xA1
+        cpu.a = 0x38
+        cpu.p = 0
+        cpu.ora()
+        assertEquals(0xB9, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testPha() {
+        cpu.a = 0x99
+        cpu.s = 0xFA
+        cpu.pha()
+        assertEquals(0x99, mem.read(0x01FA))
+        assertEquals(0xF9, cpu.s)
+    }
+
+    @Test def testPhp() {
+        cpu.p = 0x81
+        cpu.s = 0xEF
+        cpu.php()
+        assertEquals(0x81, mem.read(0x01EF))
+        assertEquals(0xEE, cpu.s)
+    }
+
+    @Test def testPla() {
+        mem.write(0x01FD, 0x00)
+        cpu.a = 0x01
+        cpu.s = 0xFC
+        cpu.pla()
+        assertEquals(0x00, cpu.a)
+        assertEquals(0xFD, cpu.s)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0x01FD, 0xF1)
+        cpu.a = 0x01
+        cpu.s = 0xFC
+        cpu.pla()
+        assertEquals(0xF1, cpu.a)
+        assertEquals(0xFD, cpu.s)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0x01FD, 0x71)
+        cpu.a = 0x01
+        cpu.s = 0xFC
+        cpu.pla()
+        assertEquals(0x71, cpu.a)
+        assertEquals(0xFD, cpu.s)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testPlp() {
+        mem.write(0x01CC, 0x34)
+        cpu.p = 0x11
+        cpu.s = 0xCB
+        cpu.plp()
+        assertEquals(0x34, cpu.p)
+    }
+
+    @Test def testRol() {
+        mem.write(0xABCD, 0x00)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0x00
+        cpu.p = 0
+        cpu.rol()
+        assertEquals(0x00, mem.read(0xABCD))
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x80)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0x80
+        cpu.p = 0
+        cpu.rol()
+        assertEquals(0x00, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0xC0)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0xC0
+        cpu.p = 0
+        cpu.rol()
+        assertEquals(0x80, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0xC0)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0xC0
+        cpu.p = cpu.C_FLAG
+        cpu.rol()
+        assertEquals(0x81, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x81)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0x81
+        cpu.p = cpu.C_FLAG
+        cpu.rol()
+        assertEquals(0x03, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x81)
+        cpu.a = 0x81
+        cpu.mode = AddressingMode.Accumulator
+        cpu.address = 0xABCD
+        cpu.operand = 0x81
+        cpu.p = cpu.C_FLAG
+        cpu.rol()
+        assertEquals(0x03, cpu.a)
+        assertEquals(0x81, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testRor() {
+        mem.write(0xABCD, 0x00)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0x00
+        cpu.p = 0
+        cpu.ror()
+        assertEquals(0x00, mem.read(0xABCD))
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x01)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0x01
+        cpu.p = 0
+        cpu.ror()
+        assertEquals(0x00, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x02)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0x02
+        cpu.p = 0
+        cpu.ror()
+        assertEquals(0x01, mem.read(0xABCD))
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x03)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0x03
+        cpu.p = 0
+        cpu.ror()
+        assertEquals(0x01, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x02)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0x02
+        cpu.p = cpu.C_FLAG
+        cpu.ror()
+        assertEquals(0x81, mem.read(0xABCD))
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x03)
+        cpu.mode = AddressingMode.Absolute
+        cpu.address = 0xABCD
+        cpu.operand = 0x03
+        cpu.p = cpu.C_FLAG
+        cpu.ror()
+        assertEquals(0x81, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x03)
+        cpu.mode = AddressingMode.Accumulator
+        cpu.address = 0xABCD
+        cpu.operand = 0x03
+        cpu.a = 0x03
+        cpu.p = cpu.C_FLAG
+        cpu.ror()
+        assertEquals(0x81, cpu.a)
+        assertEquals(0x03, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
     }
 
 }

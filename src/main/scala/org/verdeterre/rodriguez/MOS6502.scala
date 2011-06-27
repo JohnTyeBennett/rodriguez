@@ -395,40 +395,40 @@ class MOS6502(val memory: MemoryMapper) {
             case 0xEA => { cycles += 2; modeImplied();             nop() }
 
             // ORA
-            // case 0x09 => { cycles += 2; modeImmediate();           ora() } // ORA #dd
-            // case 0x05 => { cycles += 3; modeZeroPage();            ora() } // ORA aa
-            // case 0x15 => { cycles += 4; modeZeroPageX();           ora() } // ORA aa,X
-            // case 0x0D => { cycles += 4; modeAbsolute();            ora() } // ORA aaaa
-            // case 0x1D => { cycles += 4; modeAbsoluteX(true);       ora() } // ORA aaaa,X
-            // case 0x19 => { cycles += 4; modeAbsoluteY(true);       ora() } // ORA aaaa,Y
-            // case 0x01 => { cycles += 6; modeIndexedIndirect();     ora() } // ORA (aa,X)
-            // case 0x11 => { cycles += 5; modeIndirectIndexed(true); ora() } // ORA (aa),Y
+            case 0x09 => { cycles += 2; modeImmediate();           ora() } // ORA #dd
+            case 0x05 => { cycles += 3; modeZeroPage();            ora() } // ORA aa
+            case 0x15 => { cycles += 4; modeZeroPageX();           ora() } // ORA aa,X
+            case 0x0D => { cycles += 4; modeAbsolute();            ora() } // ORA aaaa
+            case 0x1D => { cycles += 4; modeAbsoluteX(true);       ora() } // ORA aaaa,X
+            case 0x19 => { cycles += 4; modeAbsoluteY(true);       ora() } // ORA aaaa,Y
+            case 0x01 => { cycles += 6; modeIndexedIndirect();     ora() } // ORA (aa,X)
+            case 0x11 => { cycles += 5; modeIndirectIndexed(true); ora() } // ORA (aa),Y
 
             // PHA
-            // case 0x48 => { cycles += 3; modeImplied();             pha() }
+            case 0x48 => { cycles += 3; modeImplied();             pha() }
 
             // PHP
-            // case 0x08 => { cycles += 3; modeImplied();             php() }
+            case 0x08 => { cycles += 3; modeImplied();             php() }
 
             // PLA
-            // case 0x68 => { cycles += 4; modeImplied();             pla() }
+            case 0x68 => { cycles += 4; modeImplied();             pla() }
 
             // PLP
-            // case 0x28 => { cycles += 4; modeImplied();             plp() }
+            case 0x28 => { cycles += 4; modeImplied();             plp() }
 
             // ROL
-            // case 0x2A => { cycles += 2; modeAccumulator();         rol() } // ROL A
-            // case 0x26 => { cycles += 5; modeZeroPage();            rol() } // ROL aa
-            // case 0x36 => { cycles += 6; modeZeroPageX();           rol() } // ROL aa,X
-            // case 0x2E => { cycles += 6; modeAbsolute();            rol() } // ROL aaaa
-            // case 0x3E => { cycles += 7; modeAbsoluteX();           rol() } // ROL aaaa,X
+            case 0x2A => { cycles += 2; modeAccumulator();         rol() } // ROL A
+            case 0x26 => { cycles += 5; modeZeroPage();            rol() } // ROL aa
+            case 0x36 => { cycles += 6; modeZeroPageX();           rol() } // ROL aa,X
+            case 0x2E => { cycles += 6; modeAbsolute();            rol() } // ROL aaaa
+            case 0x3E => { cycles += 7; modeAbsoluteX();           rol() } // ROL aaaa,X
 
             // ROR
-            // case 0x6A => { cycles += 2; modeAccumulator();         ror() } // ROR A
-            // case 0x66 => { cycles += 5; modeZeroPage();            ror() } // ROR aa
-            // case 0x76 => { cycles += 6; modeZeroPageX();           ror() } // ROR aa,X
-            // case 0x6E => { cycles += 6; modeAbsolute();            ror() } // ROR aaaa
-            // case 0x7E => { cycles += 7; modeAbsoluteX();           ror() } // ROR aaaa,X
+            case 0x6A => { cycles += 2; modeAccumulator();         ror() } // ROR A
+            case 0x66 => { cycles += 5; modeZeroPage();            ror() } // ROR aa
+            case 0x76 => { cycles += 6; modeZeroPageX();           ror() } // ROR aa,X
+            case 0x6E => { cycles += 6; modeAbsolute();            ror() } // ROR aaaa
+            case 0x7E => { cycles += 7; modeAbsoluteX();           ror() } // ROR aaaa,X
 
             // RTI
             // case 0x40 => { cycles += 6; modeImplied();             rti() }
@@ -691,6 +691,48 @@ class MOS6502(val memory: MemoryMapper) {
 
     def nop() {
         // Do nothing...
+    }
+
+    def ora() {
+        a |= operand
+        setFlag(Z_FLAG, a == 0)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def pha() {
+        pushByte(a)
+    }
+
+    def php() {
+        pushByte(p)
+    }
+
+    def pla() {
+        a = pullByte
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def plp() {
+        p = pullByte
+    }
+
+    def rol() {
+        val result = ((operand << 1) | isFlagSet(C_FLAG)) & 0xFF
+        setFlag(C_FLAG, operand & 0x80)
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+        if (mode == AddressingMode.Accumulator) a = result
+        else writeByte(address, result)
+    }
+
+    def ror() {
+        val result = (operand >> 1) | (isFlagSet(C_FLAG) << 7)
+        setFlag(C_FLAG, operand & 0x01)
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+        if (mode == AddressingMode.Accumulator) a = result
+        else writeByte(address, result)
     }
 
 }
