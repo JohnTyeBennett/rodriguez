@@ -24,6 +24,15 @@ class MOS6502(val memory: MemoryMapper) {
     var maxCycles = 100000
     var cycles = 0
 
+    // Registers --------------------------------------------------
+
+    var c = 0x0000 // Program counter
+    var a = 0x00   // Accumulator
+    var x = 0x00   // X index
+    var y = 0x00   // Y index
+    var p = 0x00   // Processor status
+    var s = 0x00   // Stack pointer
+
     // Flags ------------------------------------------------------
 
     val C_FLAG = 1 << 0 // Carry
@@ -44,15 +53,6 @@ class MOS6502(val memory: MemoryMapper) {
     }
 
     def isFlagSet(flag: Int): Boolean = p & flag
-
-    // Registers --------------------------------------------------
-
-    var c = 0x0000 // Program counter
-    var a = 0x00   // Accumulator
-    var x = 0x00   // X index
-    var y = 0x00   // Y index
-    var p = 0x00   // Processor status
-    var s = 0x00   // Stack pointer
 
     // Memory functions -------------------------------------------
 
@@ -91,45 +91,6 @@ class MOS6502(val memory: MemoryMapper) {
 
     def pullTwoBytes: Int = pullByte | (pullByte << 8)
 
-    // Service requests -------------------------------------------
-
-    var isResetRequested = true
-    var isInterruptRequested = false
-    var isNonmaskableInterruptRequested = false
-
-    def clearRequests() {
-        isResetRequested = false
-        isInterruptRequested = false
-        isNonmaskableInterruptRequested = false
-    }
-
-    def handleReset() {
-        p = I_FLAG | U_FLAG
-        clearRequests()
-        c = readTwoBytes(0xFFFC)
-        cycles += 6
-    }
-
-    def handleInterrupt() {
-        if (! (p & I_FLAG)) {
-            pushTwoBytes(c)
-            pushByte(p)
-            setFlag(I_FLAG)
-            clearRequests()
-            c = readTwoBytes(0xFFFE)
-            cycles += 8
-        }
-    }
-
-    def handleNonmaskableInterrupt() {
-        pushTwoBytes(c)
-        pushByte(p)
-        setFlag(I_FLAG)
-        clearRequests()
-        c = readTwoBytes(0xFFFA)
-        cycles += 8
-    }
-
     // Addressing -------------------------------------------------
 
     var opcode  = 0x00
@@ -138,6 +99,10 @@ class MOS6502(val memory: MemoryMapper) {
     var operand = 0x00
 
     def crossesPageBoundary(address: Int, index: Int): Boolean = (address & 0xFF00) != ((address + index) & 0xFF00)
+
+    def modeImplied() {
+        mode = AddressingMode.Implied
+    }
 
     def modeAccumulator() {
         operand = a
@@ -208,6 +173,45 @@ class MOS6502(val memory: MemoryMapper) {
         mode = AddressingMode.Relative
     }
 
+    // Service requests -------------------------------------------
+
+    var isResetRequested = true
+    var isInterruptRequested = false
+    var isNonmaskableInterruptRequested = false
+
+    def clearRequests() {
+        isResetRequested = false
+        isInterruptRequested = false
+        isNonmaskableInterruptRequested = false
+    }
+
+    def handleReset() {
+        p = I_FLAG | U_FLAG
+        clearRequests()
+        c = readTwoBytes(0xFFFC)
+        cycles += 6
+    }
+
+    def handleInterrupt() {
+        if (! (p & I_FLAG)) {
+            pushTwoBytes(c)
+            pushByte(p)
+            setFlag(I_FLAG)
+            clearRequests()
+            c = readTwoBytes(0xFFFE)
+            cycles += 8
+        }
+    }
+
+    def handleNonmaskableInterrupt() {
+        pushTwoBytes(c)
+        pushByte(p)
+        setFlag(I_FLAG)
+        clearRequests()
+        c = readTwoBytes(0xFFFA)
+        cycles += 8
+    }
+
     // Execution --------------------------------------------------
 
     def run(): Int = {
@@ -223,7 +227,8 @@ class MOS6502(val memory: MemoryMapper) {
     def step() {
         if (debug) debugger.doSomething()
 
-        readNextByte match {
+        opcode = readNextByte
+        opcode match {
             // ADC
             case 0x69 => { cycles += 2; modeImmediate();           adc() } // ADC #dd
             case 0x65 => { cycles += 3; modeZeroPage();            adc() } // ADC aa
@@ -261,86 +266,86 @@ class MOS6502(val memory: MemoryMapper) {
             case 0xF0 => { cycles += 2; modeRelative();            beq() }
 
             // BIT
-            // case 0x24 => { cycles += 3; modeZeroPage();            bit() } // BIT aa
-            // case 0x2C => { cycles += 4; modeAbsolute();            bit() } // BIT aaaa
+            case 0x24 => { cycles += 3; modeZeroPage();            bit() } // BIT aa
+            case 0x2C => { cycles += 4; modeAbsolute();            bit() } // BIT aaaa
 
             // BMI aa
-            // case 0x30 => { cycles += 2; modeRelative();            bmi() }
+            case 0x30 => { cycles += 2; modeRelative();            bmi() }
 
             // BNE aa
-            // case 0xD0 => { cycles += 2; modeRelative();            bne() }
+            case 0xD0 => { cycles += 2; modeRelative();            bne() }
 
             // BPL aa
-            // case 0x10 => { cycles += 2; modeRelative();            bpl() }
+            case 0x10 => { cycles += 2; modeRelative();            bpl() }
 
             // BRK
-            // case 0x00 => { cycles += 7; modeImplied();             brk() }
+            case 0x00 => { cycles += 7; modeImplied();             brk() }
 
             // BVC aa
-            // case 0x50 => { cycles += 2; modeRelative();            bvc() }
+            case 0x50 => { cycles += 2; modeRelative();            bvc() }
 
             // BVS aa
-            // case 0x70 => { cycles += 2; modeRelative();            bvs() }
+            case 0x70 => { cycles += 2; modeRelative();            bvs() }
 
             // CLC
-            // case 0x18 => { cycles += 2; modeImplied();             clc() }
+            case 0x18 => { cycles += 2; modeImplied();             clc() }
 
             // CLD
-            // case 0xD8 => { cycles += 2; modeImplied();             cld() }
+            case 0xD8 => { cycles += 2; modeImplied();             cld() }
 
             // CLI
-            // case 0x58 => { cycles += 2; modeImplied();             cli() }
+            case 0x58 => { cycles += 2; modeImplied();             cli() }
 
             // CLV
-            // case 0xB8 => { cycles += 2; modeImplied();             clv() }
+            case 0xB8 => { cycles += 2; modeImplied();             clv() }
 
             // CMP
-            // case 0xC9 => { cycles += 2; modeImmediate();           cmp() } // CMP #dd
-            // case 0xC5 => { cycles += 3; modeZeroPage();            cmp() } // CMP aa
-            // case 0xD5 => { cycles += 4; modeZeroPageX();           cmp() } // CMP aa,X
-            // case 0xCD => { cycles += 4; modeAbsolute();            cmp() } // CMP aaaa
-            // case 0xDD => { cycles += 4; modeAbsoluteX();           cmp() } // CMP aaaa,X
-            // case 0xD9 => { cycles += 4; modeAbsoluteY();           cmp() } // CMP aaaa,Y
-            // case 0xC1 => { cycles += 6; modeIndexedIndirect();     cmp() } // CMP (aa,X)
-            // case 0xD1 => { cycles += 5; modeIndirectIndexed();     cmp() } // CMP (aa),Y
+            case 0xC9 => { cycles += 2; modeImmediate();           cmp() } // CMP #dd
+            case 0xC5 => { cycles += 3; modeZeroPage();            cmp() } // CMP aa
+            case 0xD5 => { cycles += 4; modeZeroPageX();           cmp() } // CMP aa,X
+            case 0xCD => { cycles += 4; modeAbsolute();            cmp() } // CMP aaaa
+            case 0xDD => { cycles += 4; modeAbsoluteX(true);       cmp() } // CMP aaaa,X
+            case 0xD9 => { cycles += 4; modeAbsoluteY(true);       cmp() } // CMP aaaa,Y
+            case 0xC1 => { cycles += 6; modeIndexedIndirect();     cmp() } // CMP (aa,X)
+            case 0xD1 => { cycles += 5; modeIndirectIndexed(true); cmp() } // CMP (aa),Y
 
             // CPX
-            // case 0xE0 => { cycles += 2; modeImmediate();           cpx() } // CPX #dd
-            // case 0xE4 => { cycles += 3; modeZeroPage();            cpx() } // CPX aa
-            // case 0xEC => { cycles += 4; modeAbsolute();            cpx() } // CPX aaaa
+            case 0xE0 => { cycles += 2; modeImmediate();           cpx() } // CPX #dd
+            case 0xE4 => { cycles += 3; modeZeroPage();            cpx() } // CPX aa
+            case 0xEC => { cycles += 4; modeAbsolute();            cpx() } // CPX aaaa
 
             // CPY
-            // case 0xC0 => { cycles += 2; modeImmediate();           cpy() } // CPY #dd
-            // case 0xC4 => { cycles += 3; modeZeroPage();            cpy() } // CPY aa
-            // case 0xCC => { cycles += 4; modeAbsolute();            cpy() } // CPY aaaa
+            case 0xC0 => { cycles += 2; modeImmediate();           cpy() } // CPY #dd
+            case 0xC4 => { cycles += 3; modeZeroPage();            cpy() } // CPY aa
+            case 0xCC => { cycles += 4; modeAbsolute();            cpy() } // CPY aaaa
 
             // DEC
-            // case 0xC6 => { cycles += 5; modeZeroPage();            dec() } // DEC aa
-            // case 0xD6 => { cycles += 6; modeZeroPageX();           dec() } // DEC aa,X
-            // case 0xCE => { cycles += 6; modeAbsolute();            dec() } // DEC aaaa
-            // case 0xDE => { cycles += 7; modeAbsoluteX();           dec() } // DEC aaaa,X
+            case 0xC6 => { cycles += 5; modeZeroPage();            dec() } // DEC aa
+            case 0xD6 => { cycles += 6; modeZeroPageX();           dec() } // DEC aa,X
+            case 0xCE => { cycles += 6; modeAbsolute();            dec() } // DEC aaaa
+            case 0xDE => { cycles += 7; modeAbsoluteX();           dec() } // DEC aaaa,X
 
             // DEX
-            // case 0xCA => { cycles += 2; modeImplied();             dex() }
+            case 0xCA => { cycles += 2; modeImplied();             dex() }
 
             // DEY
-            // case 0x88 => { cycles += 2; modeImplied();             dey() }
+            case 0x88 => { cycles += 2; modeImplied();             dey() }
 
             // EOR
-            // case 0x49 => { cycles += 2; modeImmediate();           eor() } // EOR #dd
-            // case 0x45 => { cycles += 3; modeZeroPage();            eor() } // EOR aa
-            // case 0x55 => { cycles += 4; modeZeroPageX();           eor() } // EOR aa,X
-            // case 0x4D => { cycles += 4; modeAbsolute();            eor() } // EOR aaaa
-            // case 0x5D => { cycles += 4; modeAbsoluteX();           eor() } // EOR aaaa,X
-            // case 0x59 => { cycles += 4; modeAbsoluteY();           eor() } // EOR aaaa,Y
-            // case 0x41 => { cycles += 6; modeIndexedIndirect();     eor() } // EOR (aa,X)
-            // case 0x51 => { cycles += 5; modeIndexedIndirect();     eor() } // EOR (aa),Y
+            case 0x49 => { cycles += 2; modeImmediate();           eor() } // EOR #dd
+            case 0x45 => { cycles += 3; modeZeroPage();            eor() } // EOR aa
+            case 0x55 => { cycles += 4; modeZeroPageX();           eor() } // EOR aa,X
+            case 0x4D => { cycles += 4; modeAbsolute();            eor() } // EOR aaaa
+            case 0x5D => { cycles += 4; modeAbsoluteX();           eor() } // EOR aaaa,X
+            case 0x59 => { cycles += 4; modeAbsoluteY();           eor() } // EOR aaaa,Y
+            case 0x41 => { cycles += 6; modeIndexedIndirect();     eor() } // EOR (aa,X)
+            case 0x51 => { cycles += 5; modeIndexedIndirect();     eor() } // EOR (aa),Y
 
             // INC
-            // case 0xE6 => { cycles += 5; modeZeroPage();            inc() } // INC aa
-            // case 0xF6 => { cycles += 6; modeZeroPageX();           inc() } // INC aa,X
-            // case 0xEE => { cycles += 6; modeAbsolute();            inc() } // INC aaaa
-            // case 0xFE => { cycles += 7; modeAbsoluteX();           inc() } // INC aaaa,X
+            case 0xE6 => { cycles += 5; modeZeroPage();            inc() } // INC aa
+            case 0xF6 => { cycles += 6; modeZeroPageX();           inc() } // INC aa,X
+            case 0xEE => { cycles += 6; modeAbsolute();            inc() } // INC aaaa
+            case 0xFE => { cycles += 7; modeAbsoluteX();           inc() } // INC aaaa,X
 
             // INX
             // case 0xE8 => { cycles += 2; modeImplied();             inx() }
@@ -535,6 +540,117 @@ class MOS6502(val memory: MemoryMapper) {
     }
 
     def bit() {
+        val result = a & operand
+        setFlag(Z_FLAG, result == 0)
+        setFlag(V_FLAG, operand & 0x40)
+        setFlag(N_FLAG, operand & 0x80)
+    }
+
+    def bmi() {
+        branch(isFlagSet(N_FLAG))
+    }
+
+    def bne() {
+        branch(! isFlagSet(Z_FLAG))
+    }
+
+    def bpl() {
+        branch(! isFlagSet(N_FLAG))
+    }
+
+    def brk() {
+        setFlag(B_FLAG)
+        c += 1
+        pushTwoBytes(c)
+        pushByte(p)
+        c = readTwoBytes(0xFFFE)
+    }
+
+    def bvc() {
+        branch(! isFlagSet(V_FLAG))
+    }
+
+    def bvs() {
+        branch(isFlagSet(V_FLAG))
+    }
+
+    def clc() {
+        clearFlag(C_FLAG)
+    }
+
+    def cld() {
+        clearFlag(D_FLAG)
+    }
+
+    def cli() {
+        clearFlag(I_FLAG)
+    }
+
+    def clv() {
+        clearFlag(V_FLAG)
+    }
+
+    def compare(regVal: Int) {
+        val result = regVal + ((~operand + 1) & 0xFF)
+        setFlag(C_FLAG, result & 0x100)
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+    }
+
+    def cmp() {
+        compare(a)
+    }
+
+    def cpx() {
+        compare(x)
+    }
+
+    def cpy() {
+        compare(y)
+    }
+
+    def dec() {
+        val result = (operand - 1) & 0xFF
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+        writeByte(address, result)
+    }
+
+    def dex() {
+        x = (x - 1) & 0xFF
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def dey() {
+        y = (y - 1) & 0xFF
+        setFlag(Z_FLAG, ! y)
+        setFlag(N_FLAG, y & 0x80)
+    }
+
+    def eor() {
+        a ^= operand
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def inc() {
+        val result = (operand + 1) & 0xFF
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+        writeByte(address, result)
+    }
+
+    def inx() {
+        x = (x + 1) & 0xFF
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def iny() {
+        y = (y + 1) & 0xFF
+        setFlag(Z_FLAG, ! y)
+        setFlag(N_FLAG, y & 0x80)
     }
 
 }

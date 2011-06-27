@@ -507,6 +507,7 @@ class MOS6502Test {
         assert(  cpu.isFlagSet(cpu.N_FLAG))
     }
 
+    // Tests main functionality of bcc, bcs, beq, bmi, bne, bpl, bvc, bvs 
     @Test def testBranch() {
         cpu.c = 0xABCD
         cpu.address = 0xABDF
@@ -543,6 +544,298 @@ class MOS6502Test {
         cpu.branch(true)
         assertEquals(0xAC0F, cpu.c)
         assertEquals(4, cpu.cycles)
+    }
+
+    @Test def testBit() {
+        cpu.operand = 0x00
+        cpu.a = 0x00
+        cpu.p = 0
+        cpu.bit()
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0x80
+        cpu.a = 0xA0
+        cpu.p = 0
+        cpu.bit()
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0xC2
+        cpu.a = 0xB1
+        cpu.p = 0
+        cpu.bit()
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testBrk() {
+        cpu.c = 0xABCD
+        mem.write(0xFFFE, 0x34)
+        mem.write(0xFFFF, 0x12)
+        cpu.s = 0xFF
+        cpu.p = cpu.U_FLAG
+        cpu.brk()
+        assertEquals(0x1234, cpu.c)
+        assertEquals(0x30, cpu.p)
+        assertEquals(0xFC, cpu.s)
+        assertEquals(0x30, mem.read(0x01FD))
+        assertEquals(0xCE, mem.read(0x01FE))
+        assertEquals(0xAB, mem.read(0x01FF))
+    }
+
+    @Test def testClc() {
+        cpu.p = 0
+        cpu.clc()
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+
+        cpu.p = cpu.C_FLAG
+        cpu.clc()
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+    }
+
+    @Test def testCld() {
+        cpu.p = 0
+        cpu.cld()
+        assert(! cpu.isFlagSet(cpu.D_FLAG))
+
+        cpu.p = cpu.D_FLAG
+        cpu.cld()
+        assert(! cpu.isFlagSet(cpu.D_FLAG))
+    }
+
+    @Test def testCli() {
+        cpu.p = 0
+        cpu.cli()
+        assert(! cpu.isFlagSet(cpu.I_FLAG))
+
+        cpu.p = cpu.I_FLAG
+        cpu.cli()
+        assert(! cpu.isFlagSet(cpu.I_FLAG))
+    }
+
+    @Test def testClv() {
+        cpu.p = 0
+        cpu.clv()
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+
+        cpu.p = cpu.V_FLAG
+        cpu.clv()
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+    }
+
+    // Tests main functionality of cmp, cpx, cpy
+    @Test def testCompare() {
+        cpu.operand = 0x00
+        cpu.compare(0x00)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0x0A
+        cpu.compare(0xFF)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0xFF
+        cpu.compare(0x0A)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0x8A
+        cpu.compare(0x0A)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testDec() {
+        mem.write(0xABCD, 0x00)
+        cpu.address = 0xABCD
+        cpu.operand = 0x00
+        cpu.p = 0
+        cpu.dec()
+        assertEquals(0xFF, mem.read(0xABCD))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x01)
+        cpu.address = 0xABCD
+        cpu.operand = 0x01
+        cpu.p = 0
+        cpu.dec()
+        assertEquals(0x00, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x02)
+        cpu.address = 0xABCD
+        cpu.operand = 0x02
+        cpu.p = 0
+        cpu.dec()
+        assertEquals(0x01, mem.read(0xABCD))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testDex() {
+        cpu.x = 0x00
+        cpu.p = 0
+        cpu.dex()
+        assertEquals(0xFF, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.x = 0x01
+        cpu.p = 0
+        cpu.dex()
+        assertEquals(0x00, cpu.x)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.x = 0x02
+        cpu.p = 0
+        cpu.dex()
+        assertEquals(0x01, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testDey() {
+        cpu.y = 0x00
+        cpu.p = 0
+        cpu.dey()
+        assertEquals(0xFF, cpu.y)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.y = 0x01
+        cpu.p = 0
+        cpu.dey()
+        assertEquals(0x00, cpu.y)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.y = 0x02
+        cpu.p = 0
+        cpu.dey()
+        assertEquals(0x01, cpu.y)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testEor() {
+        cpu.a = 0x00
+        cpu.operand = 0x00
+        cpu.p = 0
+        cpu.eor()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x33
+        cpu.operand = 0x33
+        cpu.p = 0
+        cpu.eor()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x93
+        cpu.operand = 0x53
+        cpu.p = 0
+        cpu.eor()
+        assertEquals(0xC0, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x94
+        cpu.operand = 0xD3
+        cpu.p = 0
+        cpu.eor()
+        assertEquals(0x47, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testInc() {
+        mem.write(0xABCD, 0xFE)
+        cpu.address = 0xABCD
+        cpu.operand = 0xFE
+        cpu.p = 0
+        cpu.inc()
+        assertEquals(0xFF, mem.read(0xABCD))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0xFF)
+        cpu.address = 0xABCD
+        cpu.operand = 0xFF
+        cpu.p = 0
+        cpu.inc()
+        assertEquals(0x00, mem.read(0xABCD))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0xABCD, 0x00)
+        cpu.address = 0xABCD
+        cpu.operand = 0x00
+        cpu.p = 0
+        cpu.inc()
+        assertEquals(0x01, mem.read(0xABCD))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testInx() {
+        cpu.x = 0xFE
+        cpu.p = 0
+        cpu.inx()
+        assertEquals(0xFF, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.x = 0xFF
+        cpu.p = 0
+        cpu.inx()
+        assertEquals(0x00, cpu.x)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.x = 0x00
+        cpu.p = 0
+        cpu.inx()
+        assertEquals(0x01, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testIny() {
+        cpu.y = 0xFE
+        cpu.p = 0
+        cpu.iny()
+        assertEquals(0xFF, cpu.y)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.y = 0xFF
+        cpu.p = 0
+        cpu.iny()
+        assertEquals(0x00, cpu.y)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.y = 0x00
+        cpu.p = 0
+        cpu.iny()
+        assertEquals(0x01, cpu.y)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
     }
 
 }
