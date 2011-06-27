@@ -1231,4 +1231,29 @@ class MOS6502Test {
         assert(  cpu.isFlagSet(cpu.N_FLAG))
     }
 
+    @Test def testRti() {
+        cpu.c = 0xABCD
+        cpu.s = 0xFC
+        cpu.p = cpu.I_FLAG
+        mem.write(0x01FD, 0x81)
+        mem.write(0x01FE, 0x03)
+        mem.write(0x01FF, 0x02)
+        cpu.rti()
+        assertEquals(0x0203, cpu.c)
+        assertEquals(0xFF, cpu.s)
+        assertEquals(0x81, cpu.p)
+    }
+
+    @Test def testRts() {
+        cpu.c = 0xABCD
+        cpu.s = 0xFD
+        cpu.p = 0x11
+        mem.write(0x01FE, 0x03)
+        mem.write(0x01FF, 0x02)
+        cpu.rts()
+        assertEquals(0x0204, cpu.c)
+        assertEquals(0xFF, cpu.s)
+        assertEquals(0x11, cpu.p)
+    }
+
 }

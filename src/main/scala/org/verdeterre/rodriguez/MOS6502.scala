@@ -431,10 +431,10 @@ class MOS6502(val memory: MemoryMapper) {
             case 0x7E => { cycles += 7; modeAbsoluteX();           ror() } // ROR aaaa,X
 
             // RTI
-            // case 0x40 => { cycles += 6; modeImplied();             rti() }
+            case 0x40 => { cycles += 6; modeImplied();             rti() }
 
             // RTS
-            // case 0x60 => { cycles += 6; modeImplied();             rts() }
+            case 0x60 => { cycles += 6; modeImplied();             rts() }
 
             // SBC
             // case 0xE9 => { cycles += 2; modeImmediate();           sbc() } // SBC #dd
@@ -733,6 +733,15 @@ class MOS6502(val memory: MemoryMapper) {
         setFlag(N_FLAG, result & 0x80)
         if (mode == AddressingMode.Accumulator) a = result
         else writeByte(address, result)
+    }
+
+    def rti() {
+        p = pullByte
+        c = pullTwoBytes
+    }
+
+    def rts() {
+        c = pullTwoBytes + 1
     }
 
 }
