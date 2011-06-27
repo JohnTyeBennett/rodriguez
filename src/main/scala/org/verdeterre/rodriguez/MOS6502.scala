@@ -348,51 +348,51 @@ class MOS6502(val memory: MemoryMapper) {
             case 0xFE => { cycles += 7; modeAbsoluteX();           inc() } // INC aaaa,X
 
             // INX
-            // case 0xE8 => { cycles += 2; modeImplied();             inx() }
+            case 0xE8 => { cycles += 2; modeImplied();             inx() }
 
             // INY
-            // case 0xC8 => { cycles += 2; modeImplied();             iny() }
+            case 0xC8 => { cycles += 2; modeImplied();             iny() }
 
             // JMP
-            // case 0x4C => { cycles += 3; modeAbsolute();            jmp() } // JMP aaaa
-            // case 0x6C => { cycles += 5; modeIndirectAbsolute();    jmp() } // JMP (aaaa)
+            case 0x4C => { cycles += 3; modeAbsolute();            jmp() } // JMP aaaa
+            case 0x6C => { cycles += 5; modeIndirectAbsolute();    jmp() } // JMP (aaaa)
 
             // JSR
-            // case 0x20 => { cycles += 6; modeAbsolute();            jsr() }
+            case 0x20 => { cycles += 6; modeAbsolute();            jsr() }
 
             // LDA
-            // case 0xA9 => { cycles += 2; modeImmediate();           lda() } // LDA #dd
-            // case 0xA5 => { cycles += 3; modeZeroPage();            lda() } // LDA aa
-            // case 0xB5 => { cycles += 4; modeZeroPageX()            lda() } // LDA aa,X
-            // case 0xAD => { cycles += 4; modeAbsolute()             lda() } // LDA aaaa
-            // case 0xBD => { cycles += 4; modeAbsoluteX(true)        lda() } // LDA aaaa,X
-            // case 0xB9 => { cycles += 4; modeAbsoluteY(true)        lda() } // LDA aaaa,Y
-            // case 0xA1 => { cycles += 6; modeIndexedIndirect()      lda() } // LDA (aa,X)
-            // case 0xB1 => { cycles += 5; modeIndirectIndexed(true)  lda() } // LDA (aa),Y
+            case 0xA9 => { cycles += 2; modeImmediate();           lda() } // LDA #dd
+            case 0xA5 => { cycles += 3; modeZeroPage();            lda() } // LDA aa
+            case 0xB5 => { cycles += 4; modeZeroPageX();           lda() } // LDA aa,X
+            case 0xAD => { cycles += 4; modeAbsolute();            lda() } // LDA aaaa
+            case 0xBD => { cycles += 4; modeAbsoluteX(true);       lda() } // LDA aaaa,X
+            case 0xB9 => { cycles += 4; modeAbsoluteY(true);       lda() } // LDA aaaa,Y
+            case 0xA1 => { cycles += 6; modeIndexedIndirect();     lda() } // LDA (aa,X)
+            case 0xB1 => { cycles += 5; modeIndirectIndexed(true); lda() } // LDA (aa),Y
 
             // LDX
-            // case 0xA2 => { cycles += 2; modeImmediate();           ldx() } // LDX #dd
-            // case 0xA6 => { cycles += 3; modeZeroPage();            ldx() } // LDX aa
-            // case 0xB6 => { cycles += 4; modeZeroPageY();           ldx() } // LDX aa,Y
-            // case 0xAE => { cycles += 4; modeAbsolute();            ldx() } // LDX aaaa
-            // case 0xBE => { cycles += 4; modeAbsoluteY(true)        ldx() } // LDX aaaa,Y
+            case 0xA2 => { cycles += 2; modeImmediate();           ldx() } // LDX #dd
+            case 0xA6 => { cycles += 3; modeZeroPage();            ldx() } // LDX aa
+            case 0xB6 => { cycles += 4; modeZeroPageY();           ldx() } // LDX aa,Y
+            case 0xAE => { cycles += 4; modeAbsolute();            ldx() } // LDX aaaa
+            case 0xBE => { cycles += 4; modeAbsoluteY(true);       ldx() } // LDX aaaa,Y
 
             // LDY
-            // case 0xA0 => { cycles += 2; modeImmediate();           ldy() } // LDY #dd
-            // case 0xA4 => { cycles += 3; modeZeroPage();            ldy() } // LDY aa
-            // case 0xB4 => { cycles += 4; modeZeroPageX();           ldy() } // LDY aa,X
-            // case 0xAC => { cycles += 4; modeAbsolute();            ldy() } // LDY aaaa
-            // case 0xBC => { cycles += 4; modeAbsoluteX(true)        ldy() } // LDY aaaa,X
+            case 0xA0 => { cycles += 2; modeImmediate();           ldy() } // LDY #dd
+            case 0xA4 => { cycles += 3; modeZeroPage();            ldy() } // LDY aa
+            case 0xB4 => { cycles += 4; modeZeroPageX();           ldy() } // LDY aa,X
+            case 0xAC => { cycles += 4; modeAbsolute();            ldy() } // LDY aaaa
+            case 0xBC => { cycles += 4; modeAbsoluteX(true);       ldy() } // LDY aaaa,X
 
             // LSR
-            // case 0x4A => { cycles += 2; modeAccumulator();         lsr() } // LSR A
-            // case 0x46 => { cycles += 5; modeZeroPage();            lsr() } // LSR aa
-            // case 0x56 => { cycles += 6; modeZeroPageX();           lsr() } // LSR aa,X
-            // case 0x4E => { cycles += 6; modeAbsolute();            lsr() } // LSR aaaa
-            // case 0x5E => { cycles += 7; modeAbsoluteX();           lsr() } // LSR aaaa,X
+            case 0x4A => { cycles += 2; modeAccumulator();         lsr() } // LSR A
+            case 0x46 => { cycles += 5; modeZeroPage();            lsr() } // LSR aa
+            case 0x56 => { cycles += 6; modeZeroPageX();           lsr() } // LSR aa,X
+            case 0x4E => { cycles += 6; modeAbsolute();            lsr() } // LSR aaaa
+            case 0x5E => { cycles += 7; modeAbsoluteX();           lsr() } // LSR aaaa,X
 
             // NOP
-            // case 0xEA => { cycles += 2; modeImplied();             nop() }
+            case 0xEA => { cycles += 2; modeImplied();             nop() }
 
             // ORA
             // case 0x09 => { cycles += 2; modeImmediate();           ora() } // ORA #dd
@@ -651,6 +651,46 @@ class MOS6502(val memory: MemoryMapper) {
         y = (y + 1) & 0xFF
         setFlag(Z_FLAG, ! y)
         setFlag(N_FLAG, y & 0x80)
+    }
+
+    def jmp() {
+        c = address
+    }
+
+    def jsr() {
+        pushTwoBytes((c - 1) & 0xFFFF)
+        c = address
+    }
+
+    def lda() {
+        a = operand
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def ldx() {
+        x = operand
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def ldy() {
+        y = operand
+        setFlag(Z_FLAG, ! y)
+        setFlag(N_FLAG, y & 0x80)
+    }
+
+    def lsr() {
+        val result = operand >> 1
+        setFlag(C_FLAG, operand & 0x01)
+        setFlag(Z_FLAG, ! result)
+        clearFlag(N_FLAG)
+        if (mode == AddressingMode.Accumulator) a = result
+        else writeByte(address, result)
+    }
+
+    def nop() {
+        // Do nothing...
     }
 
 }

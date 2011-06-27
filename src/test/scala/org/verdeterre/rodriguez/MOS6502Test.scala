@@ -838,4 +838,154 @@ class MOS6502Test {
         assert(! cpu.isFlagSet(cpu.N_FLAG))
     }
 
+    @Test def testJmp() {
+        cpu.address = 0xABCD
+        cpu.c = 0x1234
+        cpu.jmp()
+        assertEquals(0xABCD, cpu.c)
+    }
+
+    @Test def testJsr() {
+        cpu.address = 0x0503
+        cpu.c = 0x0204
+        cpu.s = 0xFF
+        cpu.jsr()
+        assertEquals(0x0503, cpu.c)
+        assertEquals(0xFD, cpu.s)
+        assertEquals(0x03, mem.read(0x01FE))
+        assertEquals(0x02, mem.read(0x01FF))
+    }
+
+    @Test def testLda() {
+        cpu.operand = 0x00
+        cpu.a = 0x00
+        cpu.p = 0
+        cpu.lda()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0x1A
+        cpu.a = 0x00
+        cpu.p = 0
+        cpu.lda()
+        assertEquals(0x1A, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0xAF
+        cpu.a = 0x00
+        cpu.p = 0
+        cpu.lda()
+        assertEquals(0xAF, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testLdx() {
+        cpu.operand = 0x00
+        cpu.x = 0x00
+        cpu.p = 0
+        cpu.ldx()
+        assertEquals(0x00, cpu.x)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0x1A
+        cpu.x = 0x00
+        cpu.p = 0
+        cpu.ldx()
+        assertEquals(0x1A, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0xAF
+        cpu.x = 0x00
+        cpu.p = 0
+        cpu.ldx()
+        assertEquals(0xAF, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testLdy() {
+        cpu.operand = 0x00
+        cpu.y = 0x00
+        cpu.p = 0
+        cpu.ldy()
+        assertEquals(0x00, cpu.y)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0x1A
+        cpu.y = 0x00
+        cpu.p = 0
+        cpu.ldy()
+        assertEquals(0x1A, cpu.y)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.operand = 0xAF
+        cpu.y = 0x00
+        cpu.p = 0
+        cpu.ldy()
+        assertEquals(0xAF, cpu.y)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testLsr() {
+        mem.write(0x1234, 0x00)
+        cpu.mode = AddressingMode.ZeroPage
+        cpu.address = 0x1234
+        cpu.operand = 0x00
+        cpu.a = 0x12
+        cpu.p = 0
+        cpu.lsr()
+        assertEquals(0x00, mem.read(0x1234))
+        assertEquals(0x12, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0x1234, 0x01)
+        cpu.mode = AddressingMode.ZeroPage
+        cpu.address = 0x1234
+        cpu.operand = 0x01
+        cpu.a = 0x12
+        cpu.p = 0
+        cpu.lsr()
+        assertEquals(0x00, mem.read(0x1234))
+        assertEquals(0x12, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0x1234, 0x02)
+        cpu.mode = AddressingMode.ZeroPage
+        cpu.address = 0x1234
+        cpu.operand = 0x02
+        cpu.a = 0x12
+        cpu.p = 0
+        cpu.lsr()
+        assertEquals(0x01, mem.read(0x1234))
+        assertEquals(0x12, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        mem.write(0x1234, 0x03)
+        cpu.mode = AddressingMode.ZeroPage
+        cpu.address = 0x1234
+        cpu.operand = 0x03
+        cpu.a = 0x12
+        cpu.p = 0
+        cpu.lsr()
+        assertEquals(0x01, mem.read(0x1234))
+        assertEquals(0x12, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
 }
