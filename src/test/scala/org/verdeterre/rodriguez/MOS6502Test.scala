@@ -680,7 +680,7 @@ class MOS6502Test {
         cpu.p = cpu.U_FLAG
         cpu.brk()
         assertEquals(0x1234, cpu.c)
-        assertEquals(cpu.U_FLAG | cpu.B_FLAG | cpu.I_FLAG, cpu.p)
+        assertEquals(cpu.U_FLAG | cpu.I_FLAG, cpu.p)
         assertEquals(0xFC, cpu.s)
         assertEquals(0x30, mem.read(0x01FD))
         assertEquals(0xCE, mem.read(0x01FE))

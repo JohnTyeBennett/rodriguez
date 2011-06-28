@@ -11,13 +11,11 @@ class MOS6502(val memory: MemoryMapper) {
 
     // Debugging --------------------------------------------------
 
-    var debug = false
-    var debugger: Debugger = new BasicDebugger(this)
     var shouldHalt = false
-    var isBreakpointEnabled = false
+    var breakpointsEnabled = false
     var breakpoints = Set.empty[Int]
 
-    def shouldBreak: Boolean = shouldHalt || (isBreakpointEnabled && breakpoints(c))
+    def shouldBreak: Boolean = shouldHalt || (breakpointsEnabled && breakpoints(c))
 
     // CPU clock --------------------------------------------------
 
@@ -30,7 +28,7 @@ class MOS6502(val memory: MemoryMapper) {
     var a = 0x00   // Accumulator
     var x = 0x00   // X index
     var y = 0x00   // Y index
-    var p = 0x00   // Processor status
+    var p = 0x20   // Processor status
     var s = 0x00   // Stack pointer
 
     // Flags ------------------------------------------------------
@@ -189,7 +187,7 @@ class MOS6502(val memory: MemoryMapper) {
         p = I_FLAG | U_FLAG
         clearRequests()
         c = readTwoBytes(0xFFFC)
-        cycles += 6
+        cycles = 6
     }
 
     def handleInterrupt() {
@@ -216,281 +214,281 @@ class MOS6502(val memory: MemoryMapper) {
 
     def run(): Int = {
         while (cycles < maxCycles && ! shouldBreak) {
-            if (isResetRequested) handleReset()
-            else if (isInterruptRequested) handleInterrupt()
-            else if (isNonmaskableInterruptRequested) handleNonmaskableInterrupt()
             step()
         }
         cycles
     }
 
     def step() {
-        if (debug) debugger.doSomething()
+        if (isResetRequested) handleReset()
+        else if (isInterruptRequested) handleInterrupt()
+        else if (isNonmaskableInterruptRequested) handleNonmaskableInterrupt()
+        else {
+            opcode = readNextByte
+            opcode match {
+                // ADC
+                case 0x69 => { cycles += 2; modeImmediate();           adc() } // ADC #dd
+                case 0x65 => { cycles += 3; modeZeroPage();            adc() } // ADC aa
+                case 0x75 => { cycles += 4; modeZeroPageX();           adc() } // ADC aa,X
+                case 0x6D => { cycles += 4; modeAbsolute();            adc() } // ADC aaaa
+                case 0x7D => { cycles += 4; modeAbsoluteX(true);       adc() } // ADC aaaa,X
+                case 0x79 => { cycles += 4; modeAbsoluteY(true);       adc() } // ADC aaaa,Y
+                case 0x61 => { cycles += 6; modeIndexedIndirect();     adc() } // ADC (aa,X)
+                case 0x71 => { cycles += 5; modeIndirectIndexed(true); adc() } // ADC (aa),Y
 
-        opcode = readNextByte
-        opcode match {
-            // ADC
-            case 0x69 => { cycles += 2; modeImmediate();           adc() } // ADC #dd
-            case 0x65 => { cycles += 3; modeZeroPage();            adc() } // ADC aa
-            case 0x75 => { cycles += 4; modeZeroPageX();           adc() } // ADC aa,X
-            case 0x6D => { cycles += 4; modeAbsolute();            adc() } // ADC aaaa
-            case 0x7D => { cycles += 4; modeAbsoluteX(true);       adc() } // ADC aaaa,X
-            case 0x79 => { cycles += 4; modeAbsoluteY(true);       adc() } // ADC aaaa,Y
-            case 0x61 => { cycles += 6; modeIndexedIndirect();     adc() } // ADC (aa,X)
-            case 0x71 => { cycles += 5; modeIndirectIndexed(true); adc() } // ADC (aa),Y
+                // AND
+                case 0x29 => { cycles += 2; modeImmediate();           and() } // AND #dd
+                case 0x25 => { cycles += 3; modeZeroPage();            and() } // AND aa
+                case 0x35 => { cycles += 4; modeZeroPageX();           and() } // AND aa,X
+                case 0x2D => { cycles += 4; modeAbsolute();            and() } // AND aaaa
+                case 0x3D => { cycles += 4; modeAbsoluteX(true);       and() } // AND aaaa,X
+                case 0x39 => { cycles += 4; modeAbsoluteY(true);       and() } // AND aaaa,Y
+                case 0x21 => { cycles += 6; modeIndexedIndirect();     and() } // AND (aa,X)
+                case 0x31 => { cycles += 5; modeIndirectIndexed(true); and() } // AND (aa),Y
 
-            // AND
-            case 0x29 => { cycles += 2; modeImmediate();           and() } // AND #dd
-            case 0x25 => { cycles += 3; modeZeroPage();            and() } // AND aa
-            case 0x35 => { cycles += 4; modeZeroPageX();           and() } // AND aa,X
-            case 0x2D => { cycles += 4; modeAbsolute();            and() } // AND aaaa
-            case 0x3D => { cycles += 4; modeAbsoluteX(true);       and() } // AND aaaa,X
-            case 0x39 => { cycles += 4; modeAbsoluteY(true);       and() } // AND aaaa,Y
-            case 0x21 => { cycles += 6; modeIndexedIndirect();     and() } // AND (aa,X)
-            case 0x31 => { cycles += 5; modeIndirectIndexed(true); and() } // AND (aa),Y
+                // ASL
+                case 0x0A => { cycles += 2; modeAccumulator();         asl() } // ASL A
+                case 0x06 => { cycles += 5; modeZeroPage();            asl() } // ASL aa
+                case 0x16 => { cycles += 6; modeZeroPageX();           asl() } // ASL aa,X
+                case 0x0E => { cycles += 6; modeAbsolute();            asl() } // ASL aaaa
+                case 0x1E => { cycles += 7; modeAbsoluteX();           asl() } // ASL aaaa,X
 
-            // ASL
-            case 0x0A => { cycles += 2; modeAccumulator();         asl() } // ASL A
-            case 0x06 => { cycles += 5; modeZeroPage();            asl() } // ASL aa
-            case 0x16 => { cycles += 6; modeZeroPageX();           asl() } // ASL aa,X
-            case 0x0E => { cycles += 6; modeAbsolute();            asl() } // ASL aaaa
-            case 0x1E => { cycles += 7; modeAbsoluteX();           asl() } // ASL aaaa,X
+                // BCC aa
+                case 0x90 => { cycles += 2; modeRelative();            bcc() }
 
-            // BCC aa
-            case 0x90 => { cycles += 2; modeRelative();            bcc() }
+                // BCS aa
+                case 0xB0 => { cycles += 2; modeRelative();            bcs() }
 
-            // BCS aa
-            case 0xB0 => { cycles += 2; modeRelative();            bcs() }
+                // BEQ aa
+                case 0xF0 => { cycles += 2; modeRelative();            beq() }
 
-            // BEQ aa
-            case 0xF0 => { cycles += 2; modeRelative();            beq() }
+                // BIT
+                case 0x24 => { cycles += 3; modeZeroPage();            bit() } // BIT aa
+                case 0x2C => { cycles += 4; modeAbsolute();            bit() } // BIT aaaa
 
-            // BIT
-            case 0x24 => { cycles += 3; modeZeroPage();            bit() } // BIT aa
-            case 0x2C => { cycles += 4; modeAbsolute();            bit() } // BIT aaaa
+                // BMI aa
+                case 0x30 => { cycles += 2; modeRelative();            bmi() }
 
-            // BMI aa
-            case 0x30 => { cycles += 2; modeRelative();            bmi() }
+                // BNE aa
+                case 0xD0 => { cycles += 2; modeRelative();            bne() }
 
-            // BNE aa
-            case 0xD0 => { cycles += 2; modeRelative();            bne() }
+                // BPL aa
+                case 0x10 => { cycles += 2; modeRelative();            bpl() }
 
-            // BPL aa
-            case 0x10 => { cycles += 2; modeRelative();            bpl() }
+                // BRK
+                case 0x00 => { cycles += 7; modeImplied();             brk() }
 
-            // BRK
-            case 0x00 => { cycles += 7; modeImplied();             brk() }
+                // BVC aa
+                case 0x50 => { cycles += 2; modeRelative();            bvc() }
 
-            // BVC aa
-            case 0x50 => { cycles += 2; modeRelative();            bvc() }
+                // BVS aa
+                case 0x70 => { cycles += 2; modeRelative();            bvs() }
 
-            // BVS aa
-            case 0x70 => { cycles += 2; modeRelative();            bvs() }
+                // CLC
+                case 0x18 => { cycles += 2; modeImplied();             clc() }
 
-            // CLC
-            case 0x18 => { cycles += 2; modeImplied();             clc() }
+                // CLD
+                case 0xD8 => { cycles += 2; modeImplied();             cld() }
 
-            // CLD
-            case 0xD8 => { cycles += 2; modeImplied();             cld() }
+                // CLI
+                case 0x58 => { cycles += 2; modeImplied();             cli() }
 
-            // CLI
-            case 0x58 => { cycles += 2; modeImplied();             cli() }
+                // CLV
+                case 0xB8 => { cycles += 2; modeImplied();             clv() }
 
-            // CLV
-            case 0xB8 => { cycles += 2; modeImplied();             clv() }
+                // CMP
+                case 0xC9 => { cycles += 2; modeImmediate();           cmp() } // CMP #dd
+                case 0xC5 => { cycles += 3; modeZeroPage();            cmp() } // CMP aa
+                case 0xD5 => { cycles += 4; modeZeroPageX();           cmp() } // CMP aa,X
+                case 0xCD => { cycles += 4; modeAbsolute();            cmp() } // CMP aaaa
+                case 0xDD => { cycles += 4; modeAbsoluteX(true);       cmp() } // CMP aaaa,X
+                case 0xD9 => { cycles += 4; modeAbsoluteY(true);       cmp() } // CMP aaaa,Y
+                case 0xC1 => { cycles += 6; modeIndexedIndirect();     cmp() } // CMP (aa,X)
+                case 0xD1 => { cycles += 5; modeIndirectIndexed(true); cmp() } // CMP (aa),Y
 
-            // CMP
-            case 0xC9 => { cycles += 2; modeImmediate();           cmp() } // CMP #dd
-            case 0xC5 => { cycles += 3; modeZeroPage();            cmp() } // CMP aa
-            case 0xD5 => { cycles += 4; modeZeroPageX();           cmp() } // CMP aa,X
-            case 0xCD => { cycles += 4; modeAbsolute();            cmp() } // CMP aaaa
-            case 0xDD => { cycles += 4; modeAbsoluteX(true);       cmp() } // CMP aaaa,X
-            case 0xD9 => { cycles += 4; modeAbsoluteY(true);       cmp() } // CMP aaaa,Y
-            case 0xC1 => { cycles += 6; modeIndexedIndirect();     cmp() } // CMP (aa,X)
-            case 0xD1 => { cycles += 5; modeIndirectIndexed(true); cmp() } // CMP (aa),Y
+                // CPX
+                case 0xE0 => { cycles += 2; modeImmediate();           cpx() } // CPX #dd
+                case 0xE4 => { cycles += 3; modeZeroPage();            cpx() } // CPX aa
+                case 0xEC => { cycles += 4; modeAbsolute();            cpx() } // CPX aaaa
 
-            // CPX
-            case 0xE0 => { cycles += 2; modeImmediate();           cpx() } // CPX #dd
-            case 0xE4 => { cycles += 3; modeZeroPage();            cpx() } // CPX aa
-            case 0xEC => { cycles += 4; modeAbsolute();            cpx() } // CPX aaaa
+                // CPY
+                case 0xC0 => { cycles += 2; modeImmediate();           cpy() } // CPY #dd
+                case 0xC4 => { cycles += 3; modeZeroPage();            cpy() } // CPY aa
+                case 0xCC => { cycles += 4; modeAbsolute();            cpy() } // CPY aaaa
 
-            // CPY
-            case 0xC0 => { cycles += 2; modeImmediate();           cpy() } // CPY #dd
-            case 0xC4 => { cycles += 3; modeZeroPage();            cpy() } // CPY aa
-            case 0xCC => { cycles += 4; modeAbsolute();            cpy() } // CPY aaaa
+                // DEC
+                case 0xC6 => { cycles += 5; modeZeroPage();            dec() } // DEC aa
+                case 0xD6 => { cycles += 6; modeZeroPageX();           dec() } // DEC aa,X
+                case 0xCE => { cycles += 6; modeAbsolute();            dec() } // DEC aaaa
+                case 0xDE => { cycles += 7; modeAbsoluteX();           dec() } // DEC aaaa,X
 
-            // DEC
-            case 0xC6 => { cycles += 5; modeZeroPage();            dec() } // DEC aa
-            case 0xD6 => { cycles += 6; modeZeroPageX();           dec() } // DEC aa,X
-            case 0xCE => { cycles += 6; modeAbsolute();            dec() } // DEC aaaa
-            case 0xDE => { cycles += 7; modeAbsoluteX();           dec() } // DEC aaaa,X
+                // DEX
+                case 0xCA => { cycles += 2; modeImplied();             dex() }
 
-            // DEX
-            case 0xCA => { cycles += 2; modeImplied();             dex() }
+                // DEY
+                case 0x88 => { cycles += 2; modeImplied();             dey() }
 
-            // DEY
-            case 0x88 => { cycles += 2; modeImplied();             dey() }
+                // EOR
+                case 0x49 => { cycles += 2; modeImmediate();           eor() } // EOR #dd
+                case 0x45 => { cycles += 3; modeZeroPage();            eor() } // EOR aa
+                case 0x55 => { cycles += 4; modeZeroPageX();           eor() } // EOR aa,X
+                case 0x4D => { cycles += 4; modeAbsolute();            eor() } // EOR aaaa
+                case 0x5D => { cycles += 4; modeAbsoluteX();           eor() } // EOR aaaa,X
+                case 0x59 => { cycles += 4; modeAbsoluteY();           eor() } // EOR aaaa,Y
+                case 0x41 => { cycles += 6; modeIndexedIndirect();     eor() } // EOR (aa,X)
+                case 0x51 => { cycles += 5; modeIndexedIndirect();     eor() } // EOR (aa),Y
 
-            // EOR
-            case 0x49 => { cycles += 2; modeImmediate();           eor() } // EOR #dd
-            case 0x45 => { cycles += 3; modeZeroPage();            eor() } // EOR aa
-            case 0x55 => { cycles += 4; modeZeroPageX();           eor() } // EOR aa,X
-            case 0x4D => { cycles += 4; modeAbsolute();            eor() } // EOR aaaa
-            case 0x5D => { cycles += 4; modeAbsoluteX();           eor() } // EOR aaaa,X
-            case 0x59 => { cycles += 4; modeAbsoluteY();           eor() } // EOR aaaa,Y
-            case 0x41 => { cycles += 6; modeIndexedIndirect();     eor() } // EOR (aa,X)
-            case 0x51 => { cycles += 5; modeIndexedIndirect();     eor() } // EOR (aa),Y
+                // INC
+                case 0xE6 => { cycles += 5; modeZeroPage();            inc() } // INC aa
+                case 0xF6 => { cycles += 6; modeZeroPageX();           inc() } // INC aa,X
+                case 0xEE => { cycles += 6; modeAbsolute();            inc() } // INC aaaa
+                case 0xFE => { cycles += 7; modeAbsoluteX();           inc() } // INC aaaa,X
 
-            // INC
-            case 0xE6 => { cycles += 5; modeZeroPage();            inc() } // INC aa
-            case 0xF6 => { cycles += 6; modeZeroPageX();           inc() } // INC aa,X
-            case 0xEE => { cycles += 6; modeAbsolute();            inc() } // INC aaaa
-            case 0xFE => { cycles += 7; modeAbsoluteX();           inc() } // INC aaaa,X
+                // INX
+                case 0xE8 => { cycles += 2; modeImplied();             inx() }
 
-            // INX
-            case 0xE8 => { cycles += 2; modeImplied();             inx() }
+                // INY
+                case 0xC8 => { cycles += 2; modeImplied();             iny() }
 
-            // INY
-            case 0xC8 => { cycles += 2; modeImplied();             iny() }
+                // JMP
+                case 0x4C => { cycles += 3; modeAbsolute();            jmp() } // JMP aaaa
+                case 0x6C => { cycles += 5; modeIndirectAbsolute();    jmp() } // JMP (aaaa)
 
-            // JMP
-            case 0x4C => { cycles += 3; modeAbsolute();            jmp() } // JMP aaaa
-            case 0x6C => { cycles += 5; modeIndirectAbsolute();    jmp() } // JMP (aaaa)
+                // JSR
+                case 0x20 => { cycles += 6; modeAbsolute();            jsr() }
 
-            // JSR
-            case 0x20 => { cycles += 6; modeAbsolute();            jsr() }
+                // LDA
+                case 0xA9 => { cycles += 2; modeImmediate();           lda() } // LDA #dd
+                case 0xA5 => { cycles += 3; modeZeroPage();            lda() } // LDA aa
+                case 0xB5 => { cycles += 4; modeZeroPageX();           lda() } // LDA aa,X
+                case 0xAD => { cycles += 4; modeAbsolute();            lda() } // LDA aaaa
+                case 0xBD => { cycles += 4; modeAbsoluteX(true);       lda() } // LDA aaaa,X
+                case 0xB9 => { cycles += 4; modeAbsoluteY(true);       lda() } // LDA aaaa,Y
+                case 0xA1 => { cycles += 6; modeIndexedIndirect();     lda() } // LDA (aa,X)
+                case 0xB1 => { cycles += 5; modeIndirectIndexed(true); lda() } // LDA (aa),Y
 
-            // LDA
-            case 0xA9 => { cycles += 2; modeImmediate();           lda() } // LDA #dd
-            case 0xA5 => { cycles += 3; modeZeroPage();            lda() } // LDA aa
-            case 0xB5 => { cycles += 4; modeZeroPageX();           lda() } // LDA aa,X
-            case 0xAD => { cycles += 4; modeAbsolute();            lda() } // LDA aaaa
-            case 0xBD => { cycles += 4; modeAbsoluteX(true);       lda() } // LDA aaaa,X
-            case 0xB9 => { cycles += 4; modeAbsoluteY(true);       lda() } // LDA aaaa,Y
-            case 0xA1 => { cycles += 6; modeIndexedIndirect();     lda() } // LDA (aa,X)
-            case 0xB1 => { cycles += 5; modeIndirectIndexed(true); lda() } // LDA (aa),Y
+                // LDX
+                case 0xA2 => { cycles += 2; modeImmediate();           ldx() } // LDX #dd
+                case 0xA6 => { cycles += 3; modeZeroPage();            ldx() } // LDX aa
+                case 0xB6 => { cycles += 4; modeZeroPageY();           ldx() } // LDX aa,Y
+                case 0xAE => { cycles += 4; modeAbsolute();            ldx() } // LDX aaaa
+                case 0xBE => { cycles += 4; modeAbsoluteY(true);       ldx() } // LDX aaaa,Y
 
-            // LDX
-            case 0xA2 => { cycles += 2; modeImmediate();           ldx() } // LDX #dd
-            case 0xA6 => { cycles += 3; modeZeroPage();            ldx() } // LDX aa
-            case 0xB6 => { cycles += 4; modeZeroPageY();           ldx() } // LDX aa,Y
-            case 0xAE => { cycles += 4; modeAbsolute();            ldx() } // LDX aaaa
-            case 0xBE => { cycles += 4; modeAbsoluteY(true);       ldx() } // LDX aaaa,Y
+                // LDY
+                case 0xA0 => { cycles += 2; modeImmediate();           ldy() } // LDY #dd
+                case 0xA4 => { cycles += 3; modeZeroPage();            ldy() } // LDY aa
+                case 0xB4 => { cycles += 4; modeZeroPageX();           ldy() } // LDY aa,X
+                case 0xAC => { cycles += 4; modeAbsolute();            ldy() } // LDY aaaa
+                case 0xBC => { cycles += 4; modeAbsoluteX(true);       ldy() } // LDY aaaa,X
 
-            // LDY
-            case 0xA0 => { cycles += 2; modeImmediate();           ldy() } // LDY #dd
-            case 0xA4 => { cycles += 3; modeZeroPage();            ldy() } // LDY aa
-            case 0xB4 => { cycles += 4; modeZeroPageX();           ldy() } // LDY aa,X
-            case 0xAC => { cycles += 4; modeAbsolute();            ldy() } // LDY aaaa
-            case 0xBC => { cycles += 4; modeAbsoluteX(true);       ldy() } // LDY aaaa,X
+                // LSR
+                case 0x4A => { cycles += 2; modeAccumulator();         lsr() } // LSR A
+                case 0x46 => { cycles += 5; modeZeroPage();            lsr() } // LSR aa
+                case 0x56 => { cycles += 6; modeZeroPageX();           lsr() } // LSR aa,X
+                case 0x4E => { cycles += 6; modeAbsolute();            lsr() } // LSR aaaa
+                case 0x5E => { cycles += 7; modeAbsoluteX();           lsr() } // LSR aaaa,X
 
-            // LSR
-            case 0x4A => { cycles += 2; modeAccumulator();         lsr() } // LSR A
-            case 0x46 => { cycles += 5; modeZeroPage();            lsr() } // LSR aa
-            case 0x56 => { cycles += 6; modeZeroPageX();           lsr() } // LSR aa,X
-            case 0x4E => { cycles += 6; modeAbsolute();            lsr() } // LSR aaaa
-            case 0x5E => { cycles += 7; modeAbsoluteX();           lsr() } // LSR aaaa,X
+                // NOP
+                case 0xEA => { cycles += 2; modeImplied();             nop() }
 
-            // NOP
-            case 0xEA => { cycles += 2; modeImplied();             nop() }
+                // ORA
+                case 0x09 => { cycles += 2; modeImmediate();           ora() } // ORA #dd
+                case 0x05 => { cycles += 3; modeZeroPage();            ora() } // ORA aa
+                case 0x15 => { cycles += 4; modeZeroPageX();           ora() } // ORA aa,X
+                case 0x0D => { cycles += 4; modeAbsolute();            ora() } // ORA aaaa
+                case 0x1D => { cycles += 4; modeAbsoluteX(true);       ora() } // ORA aaaa,X
+                case 0x19 => { cycles += 4; modeAbsoluteY(true);       ora() } // ORA aaaa,Y
+                case 0x01 => { cycles += 6; modeIndexedIndirect();     ora() } // ORA (aa,X)
+                case 0x11 => { cycles += 5; modeIndirectIndexed(true); ora() } // ORA (aa),Y
 
-            // ORA
-            case 0x09 => { cycles += 2; modeImmediate();           ora() } // ORA #dd
-            case 0x05 => { cycles += 3; modeZeroPage();            ora() } // ORA aa
-            case 0x15 => { cycles += 4; modeZeroPageX();           ora() } // ORA aa,X
-            case 0x0D => { cycles += 4; modeAbsolute();            ora() } // ORA aaaa
-            case 0x1D => { cycles += 4; modeAbsoluteX(true);       ora() } // ORA aaaa,X
-            case 0x19 => { cycles += 4; modeAbsoluteY(true);       ora() } // ORA aaaa,Y
-            case 0x01 => { cycles += 6; modeIndexedIndirect();     ora() } // ORA (aa,X)
-            case 0x11 => { cycles += 5; modeIndirectIndexed(true); ora() } // ORA (aa),Y
+                // PHA
+                case 0x48 => { cycles += 3; modeImplied();             pha() }
 
-            // PHA
-            case 0x48 => { cycles += 3; modeImplied();             pha() }
+                // PHP
+                case 0x08 => { cycles += 3; modeImplied();             php() }
 
-            // PHP
-            case 0x08 => { cycles += 3; modeImplied();             php() }
+                // PLA
+                case 0x68 => { cycles += 4; modeImplied();             pla() }
 
-            // PLA
-            case 0x68 => { cycles += 4; modeImplied();             pla() }
+                // PLP
+                case 0x28 => { cycles += 4; modeImplied();             plp() }
 
-            // PLP
-            case 0x28 => { cycles += 4; modeImplied();             plp() }
+                // ROL
+                case 0x2A => { cycles += 2; modeAccumulator();         rol() } // ROL A
+                case 0x26 => { cycles += 5; modeZeroPage();            rol() } // ROL aa
+                case 0x36 => { cycles += 6; modeZeroPageX();           rol() } // ROL aa,X
+                case 0x2E => { cycles += 6; modeAbsolute();            rol() } // ROL aaaa
+                case 0x3E => { cycles += 7; modeAbsoluteX();           rol() } // ROL aaaa,X
 
-            // ROL
-            case 0x2A => { cycles += 2; modeAccumulator();         rol() } // ROL A
-            case 0x26 => { cycles += 5; modeZeroPage();            rol() } // ROL aa
-            case 0x36 => { cycles += 6; modeZeroPageX();           rol() } // ROL aa,X
-            case 0x2E => { cycles += 6; modeAbsolute();            rol() } // ROL aaaa
-            case 0x3E => { cycles += 7; modeAbsoluteX();           rol() } // ROL aaaa,X
+                // ROR
+                case 0x6A => { cycles += 2; modeAccumulator();         ror() } // ROR A
+                case 0x66 => { cycles += 5; modeZeroPage();            ror() } // ROR aa
+                case 0x76 => { cycles += 6; modeZeroPageX();           ror() } // ROR aa,X
+                case 0x6E => { cycles += 6; modeAbsolute();            ror() } // ROR aaaa
+                case 0x7E => { cycles += 7; modeAbsoluteX();           ror() } // ROR aaaa,X
 
-            // ROR
-            case 0x6A => { cycles += 2; modeAccumulator();         ror() } // ROR A
-            case 0x66 => { cycles += 5; modeZeroPage();            ror() } // ROR aa
-            case 0x76 => { cycles += 6; modeZeroPageX();           ror() } // ROR aa,X
-            case 0x6E => { cycles += 6; modeAbsolute();            ror() } // ROR aaaa
-            case 0x7E => { cycles += 7; modeAbsoluteX();           ror() } // ROR aaaa,X
+                // RTI
+                case 0x40 => { cycles += 6; modeImplied();             rti() }
 
-            // RTI
-            case 0x40 => { cycles += 6; modeImplied();             rti() }
+                // RTS
+                case 0x60 => { cycles += 6; modeImplied();             rts() }
 
-            // RTS
-            case 0x60 => { cycles += 6; modeImplied();             rts() }
+                // SBC
+                case 0xE9 => { cycles += 2; modeImmediate();           sbc() } // SBC #dd
+                case 0xE5 => { cycles += 3; modeZeroPage();            sbc() } // SBC aa
+                case 0xF5 => { cycles += 4; modeZeroPageX();           sbc() } // SBC aa,X
+                case 0xED => { cycles += 4; modeAbsolute();            sbc() } // SBC aaaa
+                case 0xFD => { cycles += 4; modeAbsoluteX(true);       sbc() } // SBC aaaa,X
+                case 0xF9 => { cycles += 4; modeAbsoluteY(true);       sbc() } // SBC aaaa,Y
+                case 0xE1 => { cycles += 6; modeIndexedIndirect();     sbc() } // SBC (aa,X)
+                case 0xF1 => { cycles += 5; modeIndirectIndexed(true); sbc() } // SBC (aa),Y
 
-            // SBC
-            case 0xE9 => { cycles += 2; modeImmediate();           sbc() } // SBC #dd
-            case 0xE5 => { cycles += 3; modeZeroPage();            sbc() } // SBC aa
-            case 0xF5 => { cycles += 4; modeZeroPageX();           sbc() } // SBC aa,X
-            case 0xED => { cycles += 4; modeAbsolute();            sbc() } // SBC aaaa
-            case 0xFD => { cycles += 4; modeAbsoluteX(true);       sbc() } // SBC aaaa,X
-            case 0xF9 => { cycles += 4; modeAbsoluteY(true);       sbc() } // SBC aaaa,Y
-            case 0xE1 => { cycles += 6; modeIndexedIndirect();     sbc() } // SBC (aa,X)
-            case 0xF1 => { cycles += 5; modeIndirectIndexed(true); sbc() } // SBC (aa),Y
+                // SEC
+                case 0x38 => { cycles += 2; modeImplied();             sec() }
 
-            // SEC
-            case 0x38 => { cycles += 2; modeImplied();             sec() }
+                // SED
+                case 0xF8 => { cycles += 2; modeImplied();             sec() }
 
-            // SED
-            case 0xF8 => { cycles += 2; modeImplied();             sec() }
+                // SEI
+                case 0x78 => { cycles += 2; modeImplied();             sei() }
 
-            // SEI
-            case 0x78 => { cycles += 2; modeImplied();             sei() }
+                // STA
+                case 0x85 => { cycles += 3; modeZeroPage();             sta() } // STA aa
+                case 0x95 => { cycles += 4; modeZeroPageX();            sta() } // STA aa,X
+                case 0x8D => { cycles += 4; modeAbsolute();             sta() } // STA aaaa
+                case 0x9D => { cycles += 5; modeAbsoluteX();            sta() } // STA aaaa,X
+                case 0x99 => { cycles += 5; modeAbsoluteY();            sta() } // STA aaaa,Y
+                case 0x81 => { cycles += 6; modeIndexedIndirect();      sta() } // STA (aa,X)
+                case 0x91 => { cycles += 6; modeIndirectIndexed();      sta() } // STA (aa),Y
 
-            // STA
-            case 0x85 => { cycles += 3; modeZeroPage();             sta() } // STA aa
-            case 0x95 => { cycles += 4; modeZeroPageX();            sta() } // STA aa,X
-            case 0x8D => { cycles += 4; modeAbsolute();             sta() } // STA aaaa
-            case 0x9D => { cycles += 5; modeAbsoluteX();            sta() } // STA aaaa,X
-            case 0x99 => { cycles += 5; modeAbsoluteY();            sta() } // STA aaaa,Y
-            case 0x81 => { cycles += 6; modeIndexedIndirect();      sta() } // STA (aa,X)
-            case 0x91 => { cycles += 6; modeIndirectIndexed();      sta() } // STA (aa),Y
+                // STX
+                case 0x86 => { cycles += 3; modeZeroPage();            stx() } // STX aa
+                case 0x96 => { cycles += 4; modeZeroPageY();           stx() } // STX aa,Y
+                case 0x8E => { cycles += 4; modeAbsolute();            stx() } // STX aaaa
 
-            // STX
-            case 0x86 => { cycles += 3; modeZeroPage();            stx() } // STX aa
-            case 0x96 => { cycles += 4; modeZeroPageY();           stx() } // STX aa,Y
-            case 0x8E => { cycles += 4; modeAbsolute();            stx() } // STX aaaa
+                // STY
+                case 0x84 => { cycles += 3; modeZeroPage();            sty() } // STY aa
+                case 0x94 => { cycles += 4; modeZeroPageX();           sty() } // STY aa,X
+                case 0x8C => { cycles += 4; modeAbsolute();            sty() } // STY aaaa
 
-            // STY
-            case 0x84 => { cycles += 3; modeZeroPage();            sty() } // STY aa
-            case 0x94 => { cycles += 4; modeZeroPageX();           sty() } // STY aa,X
-            case 0x8C => { cycles += 4; modeAbsolute();            sty() } // STY aaaa
+                // TAX
+                case 0xAA => { cycles += 2; modeImplied();             tax() }
 
-            // TAX
-            case 0xAA => { cycles += 2; modeImplied();             tax() }
+                // TAY
+                case 0xA8 => { cycles += 2; modeImplied();             tay() }
 
-            // TAY
-            case 0xA8 => { cycles += 2; modeImplied();             tay() }
+                // TSX
+                case 0xBA => { cycles += 2; modeImplied();             tsx() }
 
-            // TSX
-            case 0xBA => { cycles += 2; modeImplied();             tsx() }
+                // TXA
+                case 0x8A => { cycles += 2; modeImplied();             txa() }
 
-            // TXA
-            case 0x8A => { cycles += 2; modeImplied();             txa() }
+                // TXS
+                case 0x9A => { cycles += 2; modeImplied();             txs() }
 
-            // TXS
-            case 0x9A => { cycles += 2; modeImplied();             txs() }
-
-            // TYA
-            case 0x98 => { cycles += 2; modeImplied();             tya() }
+                // TYA
+                case 0x98 => { cycles += 2; modeImplied();             tya() }
+            }
         }
     }
 
@@ -560,9 +558,8 @@ class MOS6502(val memory: MemoryMapper) {
 
     def brk() {
         c += 1
-        setFlag(B_FLAG)
         pushTwoBytes(c)
-        pushByte(p)
+        pushByte(p | B_FLAG)
         setFlag(I_FLAG)
         c = readTwoBytes(0xFFFE)
     }
