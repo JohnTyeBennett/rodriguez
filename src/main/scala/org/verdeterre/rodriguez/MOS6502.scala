@@ -456,41 +456,41 @@ class MOS6502(val memory: MemoryMapper) {
             case 0x78 => { cycles += 2; modeImplied();             sei() }
 
             // STA
-            // case 0x85 => { cyles += 3; modeZeroPage();             sta() } // STA aa
-            // case 0x95 => { cyles += 4; modeZeroPageX();            sta() } // STA aa,X
-            // case 0x8D => { cyles += 4; modeAbsolute();             sta() } // STA aaaa
-            // case 0x9D => { cyles += 5; modeAbsoluteX();            sta() } // STA aaaa,X
-            // case 0x99 => { cyles += 5; modeAbsoluteY();            sta() } // STA aaaa,Y
-            // case 0x81 => { cyles += 6; modeIndexedIndirect();      sta() } // STA (aa,X)
-            // case 0x91 => { cyles += 6; modeIndirectIndexed();      sta() } // STA (aa),Y
+            case 0x85 => { cycles += 3; modeZeroPage();             sta() } // STA aa
+            case 0x95 => { cycles += 4; modeZeroPageX();            sta() } // STA aa,X
+            case 0x8D => { cycles += 4; modeAbsolute();             sta() } // STA aaaa
+            case 0x9D => { cycles += 5; modeAbsoluteX();            sta() } // STA aaaa,X
+            case 0x99 => { cycles += 5; modeAbsoluteY();            sta() } // STA aaaa,Y
+            case 0x81 => { cycles += 6; modeIndexedIndirect();      sta() } // STA (aa,X)
+            case 0x91 => { cycles += 6; modeIndirectIndexed();      sta() } // STA (aa),Y
 
             // STX
-            // case 0x86 => { cycles += 3; modeZeroPage();            stx() } // STX aa
-            // case 0x96 => { cycles += 4; modeZeroPageY();           stx() } // STX aa,Y
-            // case 0x8E => { cycles += 4; modeAbsolute();            stx() } // STX aaaa
+            case 0x86 => { cycles += 3; modeZeroPage();            stx() } // STX aa
+            case 0x96 => { cycles += 4; modeZeroPageY();           stx() } // STX aa,Y
+            case 0x8E => { cycles += 4; modeAbsolute();            stx() } // STX aaaa
 
             // STY
-            // case 0x84 => { cycles += 3; modeZeroPage();            sty() } // STY aa
-            // case 0x94 => { cycles += 4; modeZeroPageX();           sty() } // STY aa,X
-            // case 0x8C => { cycles += 4; modeAbsolute();            sty() } // STY aaaa
+            case 0x84 => { cycles += 3; modeZeroPage();            sty() } // STY aa
+            case 0x94 => { cycles += 4; modeZeroPageX();           sty() } // STY aa,X
+            case 0x8C => { cycles += 4; modeAbsolute();            sty() } // STY aaaa
 
             // TAX
-            // case 0xAA => { cycles += 2; modeImplied();             tax() }
+            case 0xAA => { cycles += 2; modeImplied();             tax() }
 
             // TAY
-            // case 0xA8 => { cycles += 2; modeImplied();             tay() }
+            case 0xA8 => { cycles += 2; modeImplied();             tay() }
 
             // TSX
-            // case 0xBA => { cycles += 2; modeImplied();             tsx() }
+            case 0xBA => { cycles += 2; modeImplied();             tsx() }
 
             // TXA
-            // case 0x8A => { cycles += 2; modeImplied();             txa() }
+            case 0x8A => { cycles += 2; modeImplied();             txa() }
 
             // TXS
-            // case 0x9A => { cycles += 2; modeImplied();             txs() }
+            case 0x9A => { cycles += 2; modeImplied();             txs() }
 
             // TYA
-            // case 0x98 => { cycles += 2; modeImplied();             tya() }
+            case 0x98 => { cycles += 2; modeImplied();             tya() }
         }
     }
 
@@ -764,6 +764,54 @@ class MOS6502(val memory: MemoryMapper) {
 
     def sei() {
         setFlag(I_FLAG)
+    }
+
+    def sta() {
+        writeByte(address, a)
+    }
+
+    def stx() {
+        writeByte(address, x)
+    }
+
+    def sty() {
+        writeByte(address, y)
+    }
+
+    def tax() {
+        x = a
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def tay() {
+        y = a
+        setFlag(Z_FLAG, ! y)
+        setFlag(N_FLAG, y & 0x80)
+    }
+
+    def tsx() {
+        x = s
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def txa() {
+        a = x
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def txs() {
+        s = x
+        setFlag(Z_FLAG, ! s)
+        setFlag(N_FLAG, s & 0x80)
+    }
+
+    def tya() {
+        a = y
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
     }
 
 }

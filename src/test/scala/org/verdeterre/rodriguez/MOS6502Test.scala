@@ -1448,4 +1448,166 @@ class MOS6502Test {
         assert(cpu.isFlagSet(cpu.I_FLAG))
     }
 
+    @Test def testSta() {
+        mem.write(0x00AB, 0x12)
+        cpu.address = 0x00AB
+        cpu.a = 0xFA
+        cpu.sta()
+        assertEquals(0xFA, mem.read(0x00AB))
+    }
+
+    @Test def testStx() {
+        mem.write(0x00AB, 0x12)
+        cpu.address = 0x00AB
+        cpu.x = 0xFA
+        cpu.stx()
+        assertEquals(0xFA, mem.read(0x00AB))
+    }
+
+    @Test def testSty() {
+        mem.write(0x00AB, 0x12)
+        cpu.address = 0x00AB
+        cpu.y = 0xFA
+        cpu.sty()
+        assertEquals(0xFA, mem.read(0x00AB))
+    }
+
+    @Test def testTax() {
+        cpu.a = 0x00
+        cpu.x = 0x12
+        cpu.tax()
+        assertEquals(0x00, cpu.x)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x01
+        cpu.x = 0x00
+        cpu.tax()
+        assertEquals(0x01, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x91
+        cpu.x = 0x00
+        cpu.tax()
+        assertEquals(0x91, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testTay() {
+        cpu.a = 0x00
+        cpu.y = 0x12
+        cpu.tay()
+        assertEquals(0x00, cpu.y)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x01
+        cpu.y = 0x00
+        cpu.tay()
+        assertEquals(0x01, cpu.y)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x91
+        cpu.y = 0x00
+        cpu.tay()
+        assertEquals(0x91, cpu.y)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testTsx() {
+        cpu.s = 0x00
+        cpu.x = 0x12
+        cpu.tsx()
+        assertEquals(0x00, cpu.x)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.s = 0x01
+        cpu.x = 0x00
+        cpu.tsx()
+        assertEquals(0x01, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.s = 0x91
+        cpu.x = 0x00
+        cpu.tsx()
+        assertEquals(0x91, cpu.x)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testTxa() {
+        cpu.x = 0x00
+        cpu.a = 0x12
+        cpu.txa()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.x = 0x01
+        cpu.a = 0x00
+        cpu.txa()
+        assertEquals(0x01, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.x = 0x91
+        cpu.a = 0x00
+        cpu.txa()
+        assertEquals(0x91, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testTxs() {
+        cpu.x = 0x00
+        cpu.s = 0x12
+        cpu.txs()
+        assertEquals(0x00, cpu.s)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.x = 0x01
+        cpu.s = 0x00
+        cpu.txs()
+        assertEquals(0x01, cpu.s)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.x = 0x91
+        cpu.s = 0x00
+        cpu.txs()
+        assertEquals(0x91, cpu.s)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testTya() {
+        cpu.y = 0x00
+        cpu.a = 0x12
+        cpu.tya()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.y = 0x01
+        cpu.a = 0x00
+        cpu.tya()
+        assertEquals(0x01, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.y = 0x91
+        cpu.a = 0x00
+        cpu.tya()
+        assertEquals(0x91, cpu.a)
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+    }
+
 }
