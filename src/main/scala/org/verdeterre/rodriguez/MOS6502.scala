@@ -9,6 +9,9 @@ class MOS6502(val memory: MemoryMapper) {
 
     def padToTwoBytes(byte: Int): Int = if (byte & 0x80) 0xFF00 | byte else byte
 
+    def bcdToDec(bcd: Int): Int = 10 * (bcd >> 4) + (bcd & 0x0F)
+    def decToBcd(dec: Int): Int = ((dec / 10) << 4) + (dec % 10)
+
     // Debugging --------------------------------------------------
 
     var shouldHalt = false
@@ -495,12 +498,23 @@ class MOS6502(val memory: MemoryMapper) {
     // Instructions -----------------------------------------------
 
     def adc() {
-        val result = a + operand + isFlagSet(C_FLAG)
-        setFlag(C_FLAG, result & 0x100)
-        setFlag(Z_FLAG, (result & 0xFF) == 0)
-        setFlag(V_FLAG, ~(a ^ operand) & (a ^ result) & 0x80)
-        setFlag(N_FLAG, result & 0x80)
-        a = result & 0xFF
+        if (isFlagSet(D_FLAG)) {
+            val result = bcdToDec(a) + bcdToDec(operand) + isFlagSet(C_FLAG)
+            val bcd = decToBcd(result % 100)
+            setFlag(C_FLAG, result > 99)
+            setFlag(Z_FLAG, ! bcd)
+            setFlag(V_FLAG, ~(a ^ operand) & (a ^ bcd) & 0x80)
+            setFlag(N_FLAG, bcd & 0x80)
+            a = bcd
+        }
+        else {
+            val result = a + operand + isFlagSet(C_FLAG)
+            setFlag(C_FLAG, result & 0x100)
+            setFlag(Z_FLAG, (result & 0xFF) == 0)
+            setFlag(V_FLAG, ~(a ^ operand) & (a ^ result) & 0x80)
+            setFlag(N_FLAG, result & 0x80)
+            a = result & 0xFF
+        }
     }
 
     def and() {

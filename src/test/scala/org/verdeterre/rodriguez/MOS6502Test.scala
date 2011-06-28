@@ -518,6 +518,78 @@ class MOS6502Test {
         assert(! cpu.isFlagSet(cpu.N_FLAG))
     }
 
+    @Test def testAdcUsingBcd() {
+        cpu.p = cpu.D_FLAG
+        cpu.a = 0x00
+        cpu.operand = 0x00
+        cpu.adc()
+        assertEquals(0x00, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.p = cpu.D_FLAG
+        cpu.a = 0x26
+        cpu.operand = 0x37
+        cpu.adc()
+        assertEquals(0x63, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.p = cpu.D_FLAG
+        cpu.a = 0x56
+        cpu.operand = 0x37
+        cpu.adc()
+        assertEquals(0x93, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.p = cpu.D_FLAG
+        cpu.a = 0x56
+        cpu.operand = 0x47
+        cpu.adc()
+        assertEquals(0x03, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.p = cpu.D_FLAG
+        cpu.a = 0x56
+        cpu.operand = 0x44
+        cpu.adc()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.p = cpu.D_FLAG
+        cpu.a = 0x81
+        cpu.operand = 0x83
+        cpu.adc()
+        assertEquals(0x64, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.p = cpu.D_FLAG
+        cpu.a = 0x80
+        cpu.operand = 0xFA
+        cpu.adc()
+        assertEquals(0x40, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
     @Test def testAnd() {
         cpu.a = 0x01
         cpu.operand = 0x01
