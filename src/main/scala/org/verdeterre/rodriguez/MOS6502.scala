@@ -195,7 +195,7 @@ class MOS6502(val memory: MemoryMapper) {
     def handleInterrupt() {
         if (! (p & I_FLAG)) {
             pushTwoBytes(c)
-            pushByte(p)
+            pushByte(p & ~B_FLAG & 0xFF)
             setFlag(I_FLAG)
             clearRequests()
             c = readTwoBytes(0xFFFE)
@@ -205,7 +205,7 @@ class MOS6502(val memory: MemoryMapper) {
 
     def handleNonmaskableInterrupt() {
         pushTwoBytes(c)
-        pushByte(p)
+        pushByte(p & ~B_FLAG & 0xFF)
         setFlag(I_FLAG)
         clearRequests()
         c = readTwoBytes(0xFFFA)
@@ -437,23 +437,23 @@ class MOS6502(val memory: MemoryMapper) {
             case 0x60 => { cycles += 6; modeImplied();             rts() }
 
             // SBC
-            // case 0xE9 => { cycles += 2; modeImmediate();           sbc() } // SBC #dd
-            // case 0xE5 => { cycles += 3; modeZeroPage();            sbc() } // SBC aa
-            // case 0xF5 => { cycles += 4; modeZeroPageX();           sbc() } // SBC aa,X
-            // case 0xED => { cycles += 4; modeAbsolute();            sbc() } // SBC aaaa
-            // case 0xFD => { cycles += 4; modeAbsoluteX(true);       sbc() } // SBC aaaa,X
-            // case 0xF9 => { cycles += 4; modeAbsoluteY(true);       sbc() } // SBC aaaa,Y
-            // case 0xE1 => { cycles += 6; modeIndexedIndirect();     sbc() } // SBC (aa,X)
-            // case 0xF1 => { cycles += 5; modeIndirectIndexed(true)  sbc() } // SBC (aa),Y
+            case 0xE9 => { cycles += 2; modeImmediate();           sbc() } // SBC #dd
+            case 0xE5 => { cycles += 3; modeZeroPage();            sbc() } // SBC aa
+            case 0xF5 => { cycles += 4; modeZeroPageX();           sbc() } // SBC aa,X
+            case 0xED => { cycles += 4; modeAbsolute();            sbc() } // SBC aaaa
+            case 0xFD => { cycles += 4; modeAbsoluteX(true);       sbc() } // SBC aaaa,X
+            case 0xF9 => { cycles += 4; modeAbsoluteY(true);       sbc() } // SBC aaaa,Y
+            case 0xE1 => { cycles += 6; modeIndexedIndirect();     sbc() } // SBC (aa,X)
+            case 0xF1 => { cycles += 5; modeIndirectIndexed(true); sbc() } // SBC (aa),Y
 
             // SEC
-            // case 0x38 => { cycles += 2; modeImplied();             sec() }
+            case 0x38 => { cycles += 2; modeImplied();             sec() }
 
             // SED
-            // case 0xF8 => { cycles += 2; modeImplied();             sec() }
+            case 0xF8 => { cycles += 2; modeImplied();             sec() }
 
             // SEI
-            // case 0x78 => { cycles += 2; modeImplied();             sei() }
+            case 0x78 => { cycles += 2; modeImplied();             sei() }
 
             // STA
             // case 0x85 => { cyles += 3; modeZeroPage();             sta() } // STA aa
@@ -497,7 +497,7 @@ class MOS6502(val memory: MemoryMapper) {
     // Instructions -----------------------------------------------
 
     def adc() {
-        val result = a + operand
+        val result = a + operand + isFlagSet(C_FLAG)
         setFlag(C_FLAG, result & 0x100)
         setFlag(Z_FLAG, (result & 0xFF) == 0)
         setFlag(V_FLAG, ~(a ^ operand) & (a ^ result) & 0x80)
@@ -559,10 +559,11 @@ class MOS6502(val memory: MemoryMapper) {
     }
 
     def brk() {
-        setFlag(B_FLAG)
         c += 1
+        setFlag(B_FLAG)
         pushTwoBytes(c)
         pushByte(p)
+        setFlag(I_FLAG)
         c = readTwoBytes(0xFFFE)
     }
 
@@ -742,6 +743,27 @@ class MOS6502(val memory: MemoryMapper) {
 
     def rts() {
         c = pullTwoBytes + 1
+    }
+
+    def sbc() {
+        val result = a - operand - ! isFlagSet(C_FLAG)
+        setFlag(C_FLAG, result & 0x100)
+        setFlag(Z_FLAG, ! (result & 0xFF))
+        setFlag(V_FLAG, (a ^ operand) & (a ^ result) & 0x80)
+        setFlag(N_FLAG, result & 0x80)
+        a = result & 0xFF
+    }
+
+    def sec() {
+        setFlag(C_FLAG)
+    }
+
+    def sed() {
+        setFlag(D_FLAG)
+    }
+
+    def sei() {
+        setFlag(I_FLAG)
     }
 
 }

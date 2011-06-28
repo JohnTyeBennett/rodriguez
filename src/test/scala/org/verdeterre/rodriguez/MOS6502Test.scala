@@ -133,14 +133,14 @@ class MOS6502Test {
         mem.write(0xFFFE, 0xCD)
         mem.write(0xFFFF, 0xAB)
         cpu.c = 0x1234
-        cpu.p = 0xA1
+        cpu.p = cpu.N_FLAG | cpu.U_FLAG | cpu.B_FLAG | cpu.C_FLAG
         cpu.s = 0xFF
         cpu.cycles = 0
         cpu.handleInterrupt()
         assertEquals(0xABCD, cpu.c)
-        assertEquals(0xA5, cpu.p)
+        assertEquals(cpu.N_FLAG | cpu.U_FLAG | cpu.B_FLAG | cpu.I_FLAG | cpu.C_FLAG, cpu.p)
         assertEquals(0xFC, cpu.s)
-        assertEquals(0xA1, mem.read(0x01FD))
+        assertEquals(cpu.N_FLAG | cpu.U_FLAG | cpu.C_FLAG, mem.read(0x01FD))
         assertEquals(0x34, mem.read(0x01FE))
         assertEquals(0x12, mem.read(0x01FF))
         assertEquals(8, cpu.cycles)
@@ -150,14 +150,14 @@ class MOS6502Test {
         mem.write(0xFFFA, 0xCD)
         mem.write(0xFFFB, 0xAB)
         cpu.c = 0x1234
-        cpu.p = 0xA1
+        cpu.p = cpu.N_FLAG | cpu.U_FLAG | cpu.B_FLAG | cpu.C_FLAG
         cpu.s = 0xFF
         cpu.cycles = 0
         cpu.handleNonmaskableInterrupt()
         assertEquals(0xABCD, cpu.c)
-        assertEquals(0xA5, cpu.p)
+        assertEquals(cpu.N_FLAG | cpu.U_FLAG | cpu.B_FLAG | cpu.I_FLAG | cpu.C_FLAG, cpu.p)
         assertEquals(0xFC, cpu.s)
-        assertEquals(0xA1, mem.read(0x01FD))
+        assertEquals(cpu.N_FLAG | cpu.U_FLAG | cpu.C_FLAG, mem.read(0x01FD))
         assertEquals(0x34, mem.read(0x01FE))
         assertEquals(0x12, mem.read(0x01FF))
         assertEquals(8, cpu.cycles)
@@ -416,6 +416,106 @@ class MOS6502Test {
         assert(! cpu.isFlagSet(cpu.Z_FLAG))
         assert(  cpu.isFlagSet(cpu.V_FLAG))
         assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x01
+        cpu.operand = 0x00
+        cpu.p = cpu.C_FLAG
+        cpu.adc()
+        assertEquals(0x02, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x00
+        cpu.operand = 0x00
+        cpu.p = cpu.C_FLAG
+        cpu.adc()
+        assertEquals(0x01, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0xAE
+        cpu.operand = 0x52
+        cpu.p = cpu.C_FLAG
+        cpu.adc()
+        assertEquals(0x01, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0xAE
+        cpu.operand = 0x51
+        cpu.p = cpu.C_FLAG
+        cpu.adc()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0xAE
+        cpu.operand = 0xA1
+        cpu.p = cpu.C_FLAG
+        cpu.adc()
+        assertEquals(0x50, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x73
+        cpu.operand = 0x6A
+        cpu.p = cpu.C_FLAG
+        cpu.adc()
+        assertEquals(0xDE, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x01
+        cpu.operand = 0x01
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0x02, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x01
+        cpu.operand = 0xFF
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x7F
+        cpu.operand = 0x01
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0x80, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x80
+        cpu.operand = 0xFF
+        cpu.p = 0
+        cpu.adc()
+        assertEquals(0x7F, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
     }
 
     @Test def testAnd() {
@@ -580,7 +680,7 @@ class MOS6502Test {
         cpu.p = cpu.U_FLAG
         cpu.brk()
         assertEquals(0x1234, cpu.c)
-        assertEquals(0x30, cpu.p)
+        assertEquals(cpu.U_FLAG | cpu.B_FLAG | cpu.I_FLAG, cpu.p)
         assertEquals(0xFC, cpu.s)
         assertEquals(0x30, mem.read(0x01FD))
         assertEquals(0xCE, mem.read(0x01FE))
@@ -1254,6 +1354,98 @@ class MOS6502Test {
         assertEquals(0x0204, cpu.c)
         assertEquals(0xFF, cpu.s)
         assertEquals(0x11, cpu.p)
+    }
+
+    @Test def testSbc() {
+        cpu.a = 0x00
+        cpu.operand = 0x01
+        cpu.p = cpu.C_FLAG
+        cpu.sbc()
+        assertEquals(0xFF, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x80
+        cpu.operand = 0x01
+        cpu.p = cpu.C_FLAG
+        cpu.sbc()
+        assertEquals(0x7F, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x7F
+        cpu.operand = 0xFF
+        cpu.p = cpu.C_FLAG
+        cpu.sbc()
+        assertEquals(0x80, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x00
+        cpu.operand = 0x01
+        cpu.p = 0
+        cpu.sbc()
+        assertEquals(0xFE, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x80
+        cpu.operand = 0x01
+        cpu.p = 0
+        cpu.sbc()
+        assertEquals(0x7E, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.a = 0x7F
+        cpu.operand = 0xFF
+        cpu.p = 0
+        cpu.sbc()
+        assertEquals(0x7F, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testSec() {
+        cpu.p = 0
+        cpu.sec()
+        assert(cpu.isFlagSet(cpu.C_FLAG))
+
+        cpu.p = cpu.C_FLAG
+        cpu.sec()
+        assert(cpu.isFlagSet(cpu.C_FLAG))
+    }
+
+    @Test def testSed() {
+        cpu.p = 0
+        cpu.sed()
+        assert(cpu.isFlagSet(cpu.D_FLAG))
+
+        cpu.p = cpu.D_FLAG
+        cpu.sed()
+        assert(cpu.isFlagSet(cpu.D_FLAG))
+    }
+
+    @Test def testSei() {
+        cpu.p = 0
+        cpu.sei()
+        assert(cpu.isFlagSet(cpu.I_FLAG))
+
+        cpu.p = cpu.I_FLAG
+        cpu.sei()
+        assert(cpu.isFlagSet(cpu.I_FLAG))
     }
 
 }
