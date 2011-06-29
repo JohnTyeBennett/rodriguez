@@ -22,7 +22,7 @@ class MOS6502(val memory: MemoryMapper) {
 
     // CPU clock --------------------------------------------------
 
-    var maxCycles = 100000
+    var maxCycles = -1
     var cycles = 0
 
     // Registers --------------------------------------------------
@@ -213,14 +213,348 @@ class MOS6502(val memory: MemoryMapper) {
         cycles += 8
     }
 
-    // Execution --------------------------------------------------
+    // Instructions -----------------------------------------------
 
-    def run(): Int = {
-        while (cycles < maxCycles && ! shouldBreak) {
-            step()
+    def adc() {
+        if (isFlagSet(D_FLAG)) {
+            val result = bcdToDec(a) + bcdToDec(operand) + isFlagSet(C_FLAG)
+            val bcd = decToBcd(result % 100)
+            setFlag(C_FLAG, result > 99)
+            setFlag(Z_FLAG, ! bcd)
+            setFlag(V_FLAG, ~(a ^ operand) & (a ^ bcd) & 0x80)
+            setFlag(N_FLAG, bcd & 0x80)
+            a = bcd
         }
-        cycles
+        else {
+            val result = a + operand + isFlagSet(C_FLAG)
+            setFlag(C_FLAG, result & 0x100)
+            setFlag(Z_FLAG, (result & 0xFF) == 0)
+            setFlag(V_FLAG, ~(a ^ operand) & (a ^ result) & 0x80)
+            setFlag(N_FLAG, result & 0x80)
+            a = result & 0xFF
+        }
     }
+
+    def and() {
+        a &= operand
+        setFlag(Z_FLAG, a == 0)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def asl() {
+        val result = (operand << 1) & 0xFF
+        setFlag(C_FLAG, operand & 0x80)
+        setFlag(Z_FLAG, result == 0)
+        setFlag(N_FLAG, result & 0x80)
+        if (mode == AddressingMode.Accumulator) a = result
+        else writeByte(address, result)
+    }
+
+    def branch(condition: Boolean) {
+        if (condition) {
+            if (crossesPageBoundary(c, operand)) cycles += 2 else cycles += 1
+            c = address
+        }
+    }
+
+    def bcc() {
+        branch(! isFlagSet(C_FLAG))
+    }
+
+    def bcs() {
+        branch(isFlagSet(C_FLAG))
+    }
+
+    def beq() {
+        branch(isFlagSet(Z_FLAG))
+    }
+
+    def bit() {
+        val result = a & operand
+        setFlag(Z_FLAG, result == 0)
+        setFlag(V_FLAG, operand & 0x40)
+        setFlag(N_FLAG, operand & 0x80)
+    }
+
+    def bmi() {
+        branch(isFlagSet(N_FLAG))
+    }
+
+    def bne() {
+        branch(! isFlagSet(Z_FLAG))
+    }
+
+    def bpl() {
+        branch(! isFlagSet(N_FLAG))
+    }
+
+    def brk() {
+        c += 1
+        pushTwoBytes(c)
+        pushByte(p | B_FLAG)
+        setFlag(I_FLAG)
+        c = readTwoBytes(0xFFFE)
+    }
+
+    def bvc() {
+        branch(! isFlagSet(V_FLAG))
+    }
+
+    def bvs() {
+        branch(isFlagSet(V_FLAG))
+    }
+
+    def clc() {
+        clearFlag(C_FLAG)
+    }
+
+    def cld() {
+        clearFlag(D_FLAG)
+    }
+
+    def cli() {
+        clearFlag(I_FLAG)
+    }
+
+    def clv() {
+        clearFlag(V_FLAG)
+    }
+
+    def compare(regVal: Int) {
+        val result = regVal + ((~operand + 1) & 0xFF)
+        setFlag(C_FLAG, result & 0x100)
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+    }
+
+    def cmp() {
+        compare(a)
+    }
+
+    def cpx() {
+        compare(x)
+    }
+
+    def cpy() {
+        compare(y)
+    }
+
+    def dec() {
+        val result = (operand - 1) & 0xFF
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+        writeByte(address, result)
+    }
+
+    def dex() {
+        x = (x - 1) & 0xFF
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def dey() {
+        y = (y - 1) & 0xFF
+        setFlag(Z_FLAG, ! y)
+        setFlag(N_FLAG, y & 0x80)
+    }
+
+    def eor() {
+        a ^= operand
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def inc() {
+        val result = (operand + 1) & 0xFF
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+        writeByte(address, result)
+    }
+
+    def inx() {
+        x = (x + 1) & 0xFF
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def iny() {
+        y = (y + 1) & 0xFF
+        setFlag(Z_FLAG, ! y)
+        setFlag(N_FLAG, y & 0x80)
+    }
+
+    def jmp() {
+        c = address
+    }
+
+    def jsr() {
+        pushTwoBytes((c - 1) & 0xFFFF)
+        c = address
+    }
+
+    def lda() {
+        a = operand
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def ldx() {
+        x = operand
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def ldy() {
+        y = operand
+        setFlag(Z_FLAG, ! y)
+        setFlag(N_FLAG, y & 0x80)
+    }
+
+    def lsr() {
+        val result = operand >> 1
+        setFlag(C_FLAG, operand & 0x01)
+        setFlag(Z_FLAG, ! result)
+        clearFlag(N_FLAG)
+        if (mode == AddressingMode.Accumulator) a = result
+        else writeByte(address, result)
+    }
+
+    def nop() {
+        // Do nothing...
+    }
+
+    def ora() {
+        a |= operand
+        setFlag(Z_FLAG, a == 0)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def pha() {
+        pushByte(a)
+    }
+
+    def php() {
+        pushByte(p)
+    }
+
+    def pla() {
+        a = pullByte
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def plp() {
+        p = pullByte
+    }
+
+    def rol() {
+        val result = ((operand << 1) | isFlagSet(C_FLAG)) & 0xFF
+        setFlag(C_FLAG, operand & 0x80)
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+        if (mode == AddressingMode.Accumulator) a = result
+        else writeByte(address, result)
+    }
+
+    def ror() {
+        val result = (operand >> 1) | (isFlagSet(C_FLAG) << 7)
+        setFlag(C_FLAG, operand & 0x01)
+        setFlag(Z_FLAG, ! result)
+        setFlag(N_FLAG, result & 0x80)
+        if (mode == AddressingMode.Accumulator) a = result
+        else writeByte(address, result)
+    }
+
+    def rti() {
+        p = pullByte
+        c = pullTwoBytes
+    }
+
+    def rts() {
+        c = pullTwoBytes + 1
+    }
+
+    def sbc() {
+        if (isFlagSet(D_FLAG)) {
+            val result = bcdToDec(a) - bcdToDec(operand) - ! isFlagSet(C_FLAG)
+            val bcd = decToBcd(if (result < 0) result + 100 else result % 100)
+            setFlag(C_FLAG, result >= 0)
+            setFlag(Z_FLAG, ! bcd)
+            setFlag(V_FLAG, (a ^ operand) & (a ^ bcd) & 0x80)
+            setFlag(N_FLAG, bcd & 0x80)
+            a = bcd
+        }
+        else {
+            val result = a - operand - ! isFlagSet(C_FLAG)
+            setFlag(C_FLAG, result & 0x100)
+            setFlag(Z_FLAG, ! (result & 0xFF))
+            setFlag(V_FLAG, (a ^ operand) & (a ^ result) & 0x80)
+            setFlag(N_FLAG, result & 0x80)
+            a = result & 0xFF
+        }
+    }
+
+    def sec() {
+        setFlag(C_FLAG)
+    }
+
+    def sed() {
+        setFlag(D_FLAG)
+    }
+
+    def sei() {
+        setFlag(I_FLAG)
+    }
+
+    def sta() {
+        writeByte(address, a)
+    }
+
+    def stx() {
+        writeByte(address, x)
+    }
+
+    def sty() {
+        writeByte(address, y)
+    }
+
+    def tax() {
+        x = a
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def tay() {
+        y = a
+        setFlag(Z_FLAG, ! y)
+        setFlag(N_FLAG, y & 0x80)
+    }
+
+    def tsx() {
+        x = s
+        setFlag(Z_FLAG, ! x)
+        setFlag(N_FLAG, x & 0x80)
+    }
+
+    def txa() {
+        a = x
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    def txs() {
+        s = x
+        setFlag(Z_FLAG, ! s)
+        setFlag(N_FLAG, s & 0x80)
+    }
+
+    def tya() {
+        a = y
+        setFlag(Z_FLAG, ! a)
+        setFlag(N_FLAG, a & 0x80)
+    }
+
+    // Execution --------------------------------------------------
 
     def step() {
         if (isResetRequested) handleReset()
@@ -495,343 +829,21 @@ class MOS6502(val memory: MemoryMapper) {
         }
     }
 
-    // Instructions -----------------------------------------------
-
-    def adc() {
-        if (isFlagSet(D_FLAG)) {
-            val result = bcdToDec(a) + bcdToDec(operand) + isFlagSet(C_FLAG)
-            val bcd = decToBcd(result % 100)
-            setFlag(C_FLAG, result > 99)
-            setFlag(Z_FLAG, ! bcd)
-            setFlag(V_FLAG, ~(a ^ operand) & (a ^ bcd) & 0x80)
-            setFlag(N_FLAG, bcd & 0x80)
-            a = bcd
+    def run(): Int = {
+        while (((maxCycles < 0) || (cycles < maxCycles)) && ! shouldBreak) {
+            step()
         }
-        else {
-            val result = a + operand + isFlagSet(C_FLAG)
-            setFlag(C_FLAG, result & 0x100)
-            setFlag(Z_FLAG, (result & 0xFF) == 0)
-            setFlag(V_FLAG, ~(a ^ operand) & (a ^ result) & 0x80)
-            setFlag(N_FLAG, result & 0x80)
-            a = result & 0xFF
-        }
-    }
-
-    def and() {
-        a &= operand
-        setFlag(Z_FLAG, a == 0)
-        setFlag(N_FLAG, a & 0x80)
-    }
-
-    def asl() {
-        val result = (operand << 1) & 0xFF
-        setFlag(C_FLAG, operand & 0x80)
-        setFlag(Z_FLAG, result == 0)
-        setFlag(N_FLAG, result & 0x80)
-        if (mode == AddressingMode.Accumulator) a = result
-        else writeByte(address, result)
-    }
-
-    def branch(condition: Boolean) {
-        if (condition) {
-            if (crossesPageBoundary(c, operand)) cycles += 2 else cycles += 1
-            c = address
-        }
-    }
-
-    def bcc() {
-        branch(! isFlagSet(C_FLAG))
-    }
-
-    def bcs() {
-        branch(isFlagSet(C_FLAG))
-    }
-
-    def beq() {
-        branch(isFlagSet(Z_FLAG))
-    }
-
-    def bit() {
-        val result = a & operand
-        setFlag(Z_FLAG, result == 0)
-        setFlag(V_FLAG, operand & 0x40)
-        setFlag(N_FLAG, operand & 0x80)
-    }
-
-    def bmi() {
-        branch(isFlagSet(N_FLAG))
-    }
-
-    def bne() {
-        branch(! isFlagSet(Z_FLAG))
-    }
-
-    def bpl() {
-        branch(! isFlagSet(N_FLAG))
-    }
-
-    def brk() {
-        c += 1
-        pushTwoBytes(c)
-        pushByte(p | B_FLAG)
-        setFlag(I_FLAG)
-        c = readTwoBytes(0xFFFE)
-    }
-
-    def bvc() {
-        branch(! isFlagSet(V_FLAG))
-    }
-
-    def bvs() {
-        branch(isFlagSet(V_FLAG))
-    }
-
-    def clc() {
-        clearFlag(C_FLAG)
-    }
-
-    def cld() {
-        clearFlag(D_FLAG)
-    }
-
-    def cli() {
-        clearFlag(I_FLAG)
-    }
-
-    def clv() {
-        clearFlag(V_FLAG)
-    }
-
-    def compare(regVal: Int) {
-        val result = regVal + ((~operand + 1) & 0xFF)
-        setFlag(C_FLAG, result & 0x100)
-        setFlag(Z_FLAG, ! result)
-        setFlag(N_FLAG, result & 0x80)
-    }
-
-    def cmp() {
-        compare(a)
-    }
-
-    def cpx() {
-        compare(x)
-    }
-
-    def cpy() {
-        compare(y)
-    }
-
-    def dec() {
-        val result = (operand - 1) & 0xFF
-        setFlag(Z_FLAG, ! result)
-        setFlag(N_FLAG, result & 0x80)
-        writeByte(address, result)
-    }
-
-    def dex() {
-        x = (x - 1) & 0xFF
-        setFlag(Z_FLAG, ! x)
-        setFlag(N_FLAG, x & 0x80)
-    }
-
-    def dey() {
-        y = (y - 1) & 0xFF
-        setFlag(Z_FLAG, ! y)
-        setFlag(N_FLAG, y & 0x80)
-    }
-
-    def eor() {
-        a ^= operand
-        setFlag(Z_FLAG, ! a)
-        setFlag(N_FLAG, a & 0x80)
-    }
-
-    def inc() {
-        val result = (operand + 1) & 0xFF
-        setFlag(Z_FLAG, ! result)
-        setFlag(N_FLAG, result & 0x80)
-        writeByte(address, result)
-    }
-
-    def inx() {
-        x = (x + 1) & 0xFF
-        setFlag(Z_FLAG, ! x)
-        setFlag(N_FLAG, x & 0x80)
-    }
-
-    def iny() {
-        y = (y + 1) & 0xFF
-        setFlag(Z_FLAG, ! y)
-        setFlag(N_FLAG, y & 0x80)
-    }
-
-    def jmp() {
-        c = address
-    }
-
-    def jsr() {
-        pushTwoBytes((c - 1) & 0xFFFF)
-        c = address
-    }
-
-    def lda() {
-        a = operand
-        setFlag(Z_FLAG, ! a)
-        setFlag(N_FLAG, a & 0x80)
-    }
-
-    def ldx() {
-        x = operand
-        setFlag(Z_FLAG, ! x)
-        setFlag(N_FLAG, x & 0x80)
-    }
-
-    def ldy() {
-        y = operand
-        setFlag(Z_FLAG, ! y)
-        setFlag(N_FLAG, y & 0x80)
-    }
-
-    def lsr() {
-        val result = operand >> 1
-        setFlag(C_FLAG, operand & 0x01)
-        setFlag(Z_FLAG, ! result)
-        clearFlag(N_FLAG)
-        if (mode == AddressingMode.Accumulator) a = result
-        else writeByte(address, result)
-    }
-
-    def nop() {
-        // Do nothing...
-    }
-
-    def ora() {
-        a |= operand
-        setFlag(Z_FLAG, a == 0)
-        setFlag(N_FLAG, a & 0x80)
-    }
-
-    def pha() {
-        pushByte(a)
-    }
-
-    def php() {
-        pushByte(p)
-    }
-
-    def pla() {
-        a = pullByte
-        setFlag(Z_FLAG, ! a)
-        setFlag(N_FLAG, a & 0x80)
-    }
-
-    def plp() {
-        p = pullByte
-    }
-
-    def rol() {
-        val result = ((operand << 1) | isFlagSet(C_FLAG)) & 0xFF
-        setFlag(C_FLAG, operand & 0x80)
-        setFlag(Z_FLAG, ! result)
-        setFlag(N_FLAG, result & 0x80)
-        if (mode == AddressingMode.Accumulator) a = result
-        else writeByte(address, result)
-    }
-
-    def ror() {
-        val result = (operand >> 1) | (isFlagSet(C_FLAG) << 7)
-        setFlag(C_FLAG, operand & 0x01)
-        setFlag(Z_FLAG, ! result)
-        setFlag(N_FLAG, result & 0x80)
-        if (mode == AddressingMode.Accumulator) a = result
-        else writeByte(address, result)
-    }
-
-    def rti() {
-        p = pullByte
-        c = pullTwoBytes
-    }
-
-    def rts() {
-        c = pullTwoBytes + 1
-    }
-
-    def sbc() {
-        val result = a - operand - ! isFlagSet(C_FLAG)
-        setFlag(C_FLAG, result & 0x100)
-        setFlag(Z_FLAG, ! (result & 0xFF))
-        setFlag(V_FLAG, (a ^ operand) & (a ^ result) & 0x80)
-        setFlag(N_FLAG, result & 0x80)
-        a = result & 0xFF
-    }
-
-    def sec() {
-        setFlag(C_FLAG)
-    }
-
-    def sed() {
-        setFlag(D_FLAG)
-    }
-
-    def sei() {
-        setFlag(I_FLAG)
-    }
-
-    def sta() {
-        writeByte(address, a)
-    }
-
-    def stx() {
-        writeByte(address, x)
-    }
-
-    def sty() {
-        writeByte(address, y)
-    }
-
-    def tax() {
-        x = a
-        setFlag(Z_FLAG, ! x)
-        setFlag(N_FLAG, x & 0x80)
-    }
-
-    def tay() {
-        y = a
-        setFlag(Z_FLAG, ! y)
-        setFlag(N_FLAG, y & 0x80)
-    }
-
-    def tsx() {
-        x = s
-        setFlag(Z_FLAG, ! x)
-        setFlag(N_FLAG, x & 0x80)
-    }
-
-    def txa() {
-        a = x
-        setFlag(Z_FLAG, ! a)
-        setFlag(N_FLAG, a & 0x80)
-    }
-
-    def txs() {
-        s = x
-        setFlag(Z_FLAG, ! s)
-        setFlag(N_FLAG, s & 0x80)
-    }
-
-    def tya() {
-        a = y
-        setFlag(Z_FLAG, ! a)
-        setFlag(N_FLAG, a & 0x80)
+        cycles
     }
 
 }
 
 object AddressingMode extends Enumeration {
-    
+
     val Implied          = Value
     val Accumulator      = Value
     val Immediate        = Value
+    val Relative         = Value
     val ZeroPage         = Value
     val ZeroPageX        = Value
     val ZeroPageY        = Value
@@ -841,7 +853,5 @@ object AddressingMode extends Enumeration {
     val IndexedIndirect  = Value
     val IndirectIndexed  = Value
     val IndirectAbsolute = Value
-    val Relative         = Value
-    val Unknown          = Value
 
 }

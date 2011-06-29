@@ -679,7 +679,7 @@ class MOS6502Test {
         assert(  cpu.isFlagSet(cpu.N_FLAG))
     }
 
-    // Tests main functionality of bcc, bcs, beq, bmi, bne, bpl, bvc, bvs 
+    // Tests main functionality of bcc, bcs, beq, bmi, bne, bpl, bvc, bvs
     @Test def testBranch() {
         cpu.c = 0xABCD
         cpu.address = 0xABDF
@@ -1488,6 +1488,48 @@ class MOS6502Test {
         assert(! cpu.isFlagSet(cpu.Z_FLAG))
         assert(! cpu.isFlagSet(cpu.V_FLAG))
         assert(! cpu.isFlagSet(cpu.N_FLAG))
+    }
+
+    @Test def testSbcUsingBcd() {
+        cpu.p = cpu.D_FLAG | cpu.C_FLAG
+        cpu.a = 0x00
+        cpu.operand = 0x00
+        cpu.sbc()
+        assertEquals(0x00, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(  cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.p = cpu.D_FLAG | cpu.C_FLAG
+        cpu.a = 0x02
+        cpu.operand = 0x01
+        cpu.sbc()
+        assertEquals(0x01, cpu.a)
+        assert(  cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(! cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.p = cpu.D_FLAG | cpu.C_FLAG
+        cpu.a = 0x01
+        cpu.operand = 0x02
+        cpu.sbc()
+        assertEquals(0x99, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(! cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
+
+        cpu.p = cpu.D_FLAG | cpu.C_FLAG
+        cpu.a = 0x60
+        cpu.operand = 0x80
+        cpu.sbc()
+        assertEquals(0x80, cpu.a)
+        assert(! cpu.isFlagSet(cpu.C_FLAG))
+        assert(! cpu.isFlagSet(cpu.Z_FLAG))
+        assert(  cpu.isFlagSet(cpu.V_FLAG))
+        assert(  cpu.isFlagSet(cpu.N_FLAG))
     }
 
     @Test def testSec() {
