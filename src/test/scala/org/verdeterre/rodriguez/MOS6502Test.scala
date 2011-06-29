@@ -682,7 +682,6 @@ class MOS6502Test {
     // Tests main functionality of bcc, bcs, beq, bmi, bne, bpl, bvc, bvs
     @Test def testBranch() {
         cpu.c = 0xABCD
-        cpu.address = 0xABDF
         cpu.operand = 0x12
         cpu.mode = AddressingMode.Relative
         cpu.cycles = 2
@@ -691,7 +690,6 @@ class MOS6502Test {
         assertEquals(2, cpu.cycles)
 
         cpu.c = 0xABCD
-        cpu.address = 0xAC0F
         cpu.operand = 0x42
         cpu.mode = AddressingMode.Relative
         cpu.cycles = 2
@@ -700,7 +698,6 @@ class MOS6502Test {
         assertEquals(2, cpu.cycles)
 
         cpu.c = 0xABCD
-        cpu.address = 0xABDF
         cpu.operand = 0x12
         cpu.mode = AddressingMode.Relative
         cpu.cycles = 2
@@ -709,13 +706,17 @@ class MOS6502Test {
         assertEquals(3, cpu.cycles)
 
         cpu.c = 0xABCD
-        cpu.address = 0xAC0F
         cpu.operand = 0x42
         cpu.mode = AddressingMode.Relative
         cpu.cycles = 2
         cpu.branch(true)
         assertEquals(0xAC0F, cpu.c)
         assertEquals(4, cpu.cycles)
+
+        cpu.c = 0xABDC
+        cpu.operand = 0xF6
+        cpu.branch(true)
+        assertEquals(0xABD2, cpu.c)
     }
 
     @Test def testBit() {

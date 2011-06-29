@@ -167,8 +167,7 @@ class MOS6502(val memory: MemoryMapper) {
     }
 
     def modeRelative() {
-        operand = padToTwoBytes(readNextByte)
-        address = c + operand
+        operand = readNextByte
         mode = AddressingMode.Relative
     }
 
@@ -251,7 +250,7 @@ class MOS6502(val memory: MemoryMapper) {
     def branch(condition: Boolean) {
         if (condition) {
             if (crossesPageBoundary(c, operand)) cycles += 2 else cycles += 1
-            c = address
+            c = (c + padToTwoBytes(operand)) & 0xFFFF
         }
     }
 
