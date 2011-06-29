@@ -12,14 +12,6 @@ class MOS6502(val memory: MemoryMapper) {
     def bcdToDec(bcd: Int): Int = 10 * (bcd >> 4) + (bcd & 0x0F)
     def decToBcd(dec: Int): Int = ((dec / 10) << 4) + (dec % 10)
 
-    // Debugging --------------------------------------------------
-
-    var shouldHalt = false
-    var breakpointsEnabled = false
-    var breakpoints = Set.empty[Int]
-
-    def shouldBreak: Boolean = shouldHalt || (breakpointsEnabled && breakpoints(c))
-
     // CPU clock --------------------------------------------------
 
     var maxCycles = -1
@@ -54,6 +46,12 @@ class MOS6502(val memory: MemoryMapper) {
     }
 
     def isFlagSet(flag: Int): Boolean = p & flag
+
+    // Debugging --------------------------------------------------
+
+    var shouldHalt = false
+    var breakpointsEnabled = false
+    var breakpoints = Set.empty[Int]
 
     // Memory functions -------------------------------------------
 
@@ -830,8 +828,14 @@ class MOS6502(val memory: MemoryMapper) {
     }
 
     def run(): Int = {
-        while (((maxCycles < 0) || (cycles < maxCycles)) && ! shouldBreak) {
+        var shouldBreak = false
+        while (! shouldBreak) {
             step()
+            if (
+                (maxCycles > 0 && cycles >= maxCycles) ||
+                shouldHalt ||
+                (breakpointsEnabled && breakpoints(c))
+            ) shouldBreak = true
         }
         cycles
     }

@@ -12,7 +12,7 @@ object Debugger {
     var quit = false
     val console = System.console()
     var command = Array.empty[String]
-    var cursor = 0
+    var position = 0
 
     val cpu = new MOS6502(new MemoryMapper)
 
@@ -313,23 +313,23 @@ object Debugger {
         instructions(cpu.c, count).foreach(println)
     }
 
-    def cins() {
-        if (command.size == 1) println(instructions(cursor)(0))
-        else instructions(cursor, command(1)).foreach(println)
+    def ins() {
+        val count: Int = if (command.size == 1) 8 else command(1)
+        instructions(position, count).foreach(println)
     }
 
     def move() {
-        if (command.size == 1) printByte(cursor)
-        else if (command.size == 2) cursor = command(1)
+        if (command.size == 1) printByte(position)
+        else if (command.size == 2) position = command(1)
         else println("error")
     }
 
     def read() {
-        for (i <- 0 until command(1)) printByte(cpu.readByte(cursor + i))
+        for (i <- 0 until command(1)) printByte(cpu.readByte(position + i))
     }
 
     def write() {
-        for (i <- 1 until command.size) cpu.writeByte(cursor + i - 1, command(i))
+        for (i <- 1 until command.size) cpu.writeByte(position + i - 1, command(i))
     }
 
     def flag() {
@@ -372,38 +372,36 @@ object Debugger {
     }
 
     def bp() {
-        if (command.size == 1) {
-            cpu.breakpoints.foreach(breakpoint => println(formatTwoBytes(breakpoint)))
-        }
-        else if (command.size == 2) {
-            if (command(1) == "off") cpu.breakpointsEnabled = false
-            else if (command(1) == "on") cpu.breakpointsEnabled = true
-            else if (command(1) == "clear") cpu.breakpoints = Set.empty[Int]
-        }
+        if (command.size == 1) cpu.breakpoints.foreach(breakpoint => printTwoBytes(breakpoint))
+        else if (command.size == 2 && command(1) == "clear") cpu.breakpoints = Set.empty[Int]
         else if (command(1) == "clear") for (i <- 2 until command.size) cpu.breakpoints -= command(i)
-        else for (i <- 1 until command.size) cpu.breakpoints += command(i)
+        else if (command(1) == "set") for (i <- 2 until command.size) cpu.breakpoints += command(i)
     }
 
-    def loadbin() {
+    def load() {
         val filename = command(1)
         val in = new BufferedInputStream(new FileInputStream(filename))
-        val cursor = in.read() | (in.read() << 8)
+        val position = in.read() | (in.read() << 8)
         val size = in.read() | (in.read() << 8)
-        for (i <- cursor until cursor + size) cpu.writeByte(i, in.read())
+        for (i <- position until position + size) cpu.writeByte(i, in.read())
         in.close()
     }
 
-    def savebin() {
-        val savedCursor = cursor
+    def save() {
         val filename = command(1)
         val size = command(2)
         val out = new BufferedOutputStream(new FileOutputStream(filename))
-        out.write(cursor & 0xFF)
-        out.write(cursor >> 8)
+        out.write(position & 0xFF)
+        out.write(position >> 8)
         out.write(size & 0xFF)
         out.write(size >> 8)
-        for (i <- cursor until cursor + size) out.write(cpu.readByte(i))
+        for (i <- position until position + size) out.write(cpu.readByte(i))
         out.close()
+    }
+
+    def cycles() {
+        if (command.size == 1) println(cpu.cycles)
+        else if (command(1) == "clear") cpu.cycles = 0
     }
 
     def run() {
@@ -423,10 +421,12 @@ object Debugger {
                     case "pc"     => pc()
                     case "flag"   => flag()
                     case "list"   => list()
+                    case "cycles" => cycles()
 
-                    case "cins"   => cins()
+                    case "pos"    => printTwoBytes(position)
                     case "move"   => move()
-                    case "movepc" => cursor = cpu.c
+                    case "gopc"   => position = cpu.c
+                    case "ins"    => ins()
 
                     case "read"   => read()
                     case "write"  => write()
@@ -436,10 +436,10 @@ object Debugger {
                     case "step"   => cpu.step()
                     case "run"    => cpu.run()
 
-                    case "loadbin" => loadbin()
-                    case "savebin" => savebin()
+                    case "load"   => load()
+                    case "save"   => save()
 
-                    case _ => println("invalid command")
+                    case _        => println("invalid command")
                 }
             }
             catch {
