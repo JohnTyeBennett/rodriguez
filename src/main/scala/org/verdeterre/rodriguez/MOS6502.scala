@@ -47,12 +47,6 @@ class MOS6502(val memory: MemoryMapper) {
 
     def isFlagSet(flag: Int): Boolean = p & flag
 
-    // Debugging --------------------------------------------------
-
-    var shouldHalt = false
-    var breakpointsEnabled = false
-    var breakpoints = Set.empty[Int]
-
     // Memory functions -------------------------------------------
 
     def readByte(address: Int): Int = memory.read(address)
@@ -787,13 +781,13 @@ class MOS6502(val memory: MemoryMapper) {
                 case 0x78 => { cycles += 2; modeImplied();             sei() }
 
                 // STA
-                case 0x85 => { cycles += 3; modeZeroPage();             sta() } // STA aa
-                case 0x95 => { cycles += 4; modeZeroPageX();            sta() } // STA aa,X
-                case 0x8D => { cycles += 4; modeAbsolute();             sta() } // STA aaaa
-                case 0x9D => { cycles += 5; modeAbsoluteX();            sta() } // STA aaaa,X
-                case 0x99 => { cycles += 5; modeAbsoluteY();            sta() } // STA aaaa,Y
-                case 0x81 => { cycles += 6; modeIndexedIndirect();      sta() } // STA (aa,X)
-                case 0x91 => { cycles += 6; modeIndirectIndexed();      sta() } // STA (aa),Y
+                case 0x85 => { cycles += 3; modeZeroPage();            sta() } // STA aa
+                case 0x95 => { cycles += 4; modeZeroPageX();           sta() } // STA aa,X
+                case 0x8D => { cycles += 4; modeAbsolute();            sta() } // STA aaaa
+                case 0x9D => { cycles += 5; modeAbsoluteX();           sta() } // STA aaaa,X
+                case 0x99 => { cycles += 5; modeAbsoluteY();           sta() } // STA aaaa,Y
+                case 0x81 => { cycles += 6; modeIndexedIndirect();     sta() } // STA (aa,X)
+                case 0x91 => { cycles += 6; modeIndirectIndexed();     sta() } // STA (aa),Y
 
                 // STX
                 case 0x86 => { cycles += 3; modeZeroPage();            stx() } // STX aa
@@ -826,15 +820,11 @@ class MOS6502(val memory: MemoryMapper) {
         }
     }
 
+    var shouldHalt = false
+
     def run(): Int = {
-        var shouldBreak = false
-        while (! shouldBreak) {
+        while (! (maxCycles > 0 && cycles >= maxCycles) && ! shouldHalt) {
             step()
-            if (
-                (maxCycles > 0 && cycles >= maxCycles) ||
-                shouldHalt ||
-                (breakpointsEnabled && breakpoints(c))
-            ) shouldBreak = true
         }
         cycles
     }

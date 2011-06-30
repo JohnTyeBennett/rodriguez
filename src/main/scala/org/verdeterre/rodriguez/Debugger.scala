@@ -10,31 +10,9 @@ object Debugger {
     val cpu = new MOS6502(new MemoryMapper)
 
     var quit = false
-    var command = Array.empty[String]
     var cursor = 0
 
-    // Formatting strings -----------------------------------------
-
-    val BYTE_FORMAT                      = "$%02X"
-    val TWO_BYTE_FORMAT                  = "$%04X"
-    val MEMORY_FORMAT                    = TWO_BYTE_FORMAT + "    " + BYTE_FORMAT
-    val MNEMONIC_FORMAT                  = "%3s"
-    val INSTRUCTION_PREFIX_FORMAT        = TWO_BYTE_FORMAT + "    " + MNEMONIC_FORMAT
-    val IMPLIED_OPERAND_FORMAT           = ""
-    val ACCUMULATOR_OPERAND_FORMAT       = "A"
-    val IMMEDIATE_OPERAND_FORMAT         = "#" + BYTE_FORMAT
-    val RELATIVE_OPERAND_FORMAT          = BYTE_FORMAT
-    val ZERO_PAGE_OPERAND_FORMAT         = BYTE_FORMAT
-    val ZERO_PAGE_X_OPERAND_FORMAT       = BYTE_FORMAT + ",X"
-    val ZERO_PAGE_Y_OPERAND_FORMAT       = BYTE_FORMAT + ",Y"
-    val ABSOLUTE_OPERAND_FORMAT          = TWO_BYTE_FORMAT
-    val ABSOLUTE_X_OPERAND_FORMAT        = TWO_BYTE_FORMAT + ",X"
-    val ABSOLUTE_Y_OPERAND_FORMAT        = TWO_BYTE_FORMAT + ",Y"
-    val INDEXED_INDIRECT_OPERAND_FORMAT  = "(" + BYTE_FORMAT + ",X)"
-    val INDIRECT_INDEXED_OPERAND_FORMAT  = "(" + BYTE_FORMAT + "),Y"
-    val INDIRECT_ABSOLUTE_OPERAND_FORMAT = "(" + TWO_BYTE_FORMAT + ")"
-
-    // Utility ----------------------------------------------------
+    var breakpoints = Set.empty[Int]
 
     def parseInt(str: String): Int = {
         val negativeHex = """(-)\$([0-9A-Za-z]+)""".r
@@ -47,6 +25,45 @@ object Debugger {
             case dec(decStr) => Integer.parseInt(decStr)
         }
     }
+
+    // Colors -----------------------------------------------------
+
+    val BLACK   = 30
+    val RED     = 31
+    val GREEN   = 32
+    val YELLOW  = 33
+    val BLUE    = 34
+    val MAGENTA = 35
+    val CYAN    = 36
+    val WHITE   = 37
+    val RESET   = 0
+
+    def colorCode(color: Int): String = "\033[" + color + "m"
+
+    def setColor(color: Int) {
+        print(colorCode(color))
+    }
+
+    // Formatting strings -----------------------------------------
+
+    val BYTE_FORMAT                      = "$%02X"
+    val TWO_BYTE_FORMAT                  = "$%04X"
+    val MEMORY_FORMAT                    = colorCode(YELLOW) + TWO_BYTE_FORMAT + colorCode(RESET) + "    " + colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET)
+    val MNEMONIC_FORMAT                  = "%3s"
+    val INSTRUCTION_PREFIX_FORMAT        = colorCode(YELLOW) + TWO_BYTE_FORMAT + colorCode(RESET) + "    " + colorCode(GREEN) + MNEMONIC_FORMAT + colorCode(RESET)
+    val IMPLIED_OPERAND_FORMAT           = ""
+    val ACCUMULATOR_OPERAND_FORMAT       = "A"
+    val IMMEDIATE_OPERAND_FORMAT         = "#" + colorCode(MAGENTA) + BYTE_FORMAT + colorCode(RESET)
+    val RELATIVE_OPERAND_FORMAT          = colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET)
+    val ZERO_PAGE_OPERAND_FORMAT         = colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET)
+    val ZERO_PAGE_X_OPERAND_FORMAT       = colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET) + ",X"
+    val ZERO_PAGE_Y_OPERAND_FORMAT       = colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET) + ",Y"
+    val ABSOLUTE_OPERAND_FORMAT          = colorCode(CYAN) + TWO_BYTE_FORMAT + colorCode(RESET)
+    val ABSOLUTE_X_OPERAND_FORMAT        = colorCode(CYAN) + TWO_BYTE_FORMAT + colorCode(RESET) + ",X"
+    val ABSOLUTE_Y_OPERAND_FORMAT        = colorCode(CYAN) + TWO_BYTE_FORMAT + colorCode(RESET) + ",Y"
+    val INDEXED_INDIRECT_OPERAND_FORMAT  = "(" + colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET) + ",X)"
+    val INDIRECT_INDEXED_OPERAND_FORMAT  = "(" + colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET) + "),Y"
+    val INDIRECT_ABSOLUTE_OPERAND_FORMAT = "(" + colorCode(CYAN) + TWO_BYTE_FORMAT + colorCode(RESET) + ")"
 
     // Instructions -----------------------------------------------
 
@@ -309,86 +326,104 @@ object Debugger {
 
     // Processor information --------------------------------------
 
-    def reg() {
-        if (command.size == 1) {
-            println("pc: " + TWO_BYTE_FORMAT.format(cpu.c))
-            println("a:  " + BYTE_FORMAT.format(cpu.a))
-            println("x:  " + BYTE_FORMAT.format(cpu.x))
-            println("y:  " + BYTE_FORMAT.format(cpu.y))
-            println("p:  " + BYTE_FORMAT.format(cpu.p))
-            println("s:  " + BYTE_FORMAT.format(cpu.s))
-        }
-        else if (command.size == 2) {
-            command(1) match {
-                case "c" => println(TWO_BYTE_FORMAT.format(cpu.c))
-                case "a" => println(BYTE_FORMAT.format(cpu.a))
-                case "x" => println(BYTE_FORMAT.format(cpu.x))
-                case "y" => println(BYTE_FORMAT.format(cpu.y))
-                case "p" => println(BYTE_FORMAT.format(cpu.p))
-                case "s" => println(BYTE_FORMAT.format(cpu.s))
-            }
-        }
-        else if (command.size == 3) {
-            command(1) match {
-                case "c" => cpu.c = parseInt(command(2))
-                case "a" => cpu.a = parseInt(command(2))
-                case "x" => cpu.x = parseInt(command(2))
-                case "y" => cpu.y = parseInt(command(2))
-                case "p" => cpu.p = parseInt(command(2))
-                case "s" => cpu.s = parseInt(command(2))
-            }
+    def printRegs() {
+        println("pc: " + TWO_BYTE_FORMAT.format(cpu.c))
+        println("a:  " + BYTE_FORMAT.format(cpu.a))
+        println("x:  " + BYTE_FORMAT.format(cpu.x))
+        println("y:  " + BYTE_FORMAT.format(cpu.y))
+        println("p:  " + BYTE_FORMAT.format(cpu.p))
+        println("s:  " + BYTE_FORMAT.format(cpu.s))
+    }
+
+    def printReg(reg: String) {
+        reg match {
+            case "c" => println(TWO_BYTE_FORMAT.format(cpu.c))
+            case "a" => println(BYTE_FORMAT.format(cpu.a))
+            case "x" => println(BYTE_FORMAT.format(cpu.x))
+            case "y" => println(BYTE_FORMAT.format(cpu.y))
+            case "p" => println(BYTE_FORMAT.format(cpu.p))
+            case "s" => println(BYTE_FORMAT.format(cpu.s))
         }
     }
 
-    def flag() {
-        if (command.size == 1) {
-            println("c: " + (if (cpu.isFlagSet(cpu.C_FLAG)) 1 else 0))
-            println("z: " + (if (cpu.isFlagSet(cpu.Z_FLAG)) 1 else 0))
-            println("i: " + (if (cpu.isFlagSet(cpu.I_FLAG)) 1 else 0))
-            println("d: " + (if (cpu.isFlagSet(cpu.D_FLAG)) 1 else 0))
-            println("b: " + (if (cpu.isFlagSet(cpu.B_FLAG)) 1 else 0))
-            println("u: " + (if (cpu.isFlagSet(cpu.U_FLAG)) 1 else 0))
-            println("v: " + (if (cpu.isFlagSet(cpu.V_FLAG)) 1 else 0))
-            println("n: " + (if (cpu.isFlagSet(cpu.N_FLAG)) 1 else 0))
+    def setReg(reg: String, value: Int) {
+        reg match {
+            case "c" => cpu.c = value
+            case "a" => cpu.a = value
+            case "x" => cpu.x = value
+            case "y" => cpu.y = value
+            case "p" => cpu.p = value
+            case "s" => cpu.s = value
         }
-        else if (command.size == 2) {
-            command(1) match {
-                case "c" => println(if (cpu.isFlagSet(cpu.C_FLAG)) 1 else 0)
-                case "z" => println(if (cpu.isFlagSet(cpu.Z_FLAG)) 1 else 0)
-                case "i" => println(if (cpu.isFlagSet(cpu.I_FLAG)) 1 else 0)
-                case "d" => println(if (cpu.isFlagSet(cpu.D_FLAG)) 1 else 0)
-                case "b" => println(if (cpu.isFlagSet(cpu.B_FLAG)) 1 else 0)
-                case "u" => println(if (cpu.isFlagSet(cpu.U_FLAG)) 1 else 0)
-                case "v" => println(if (cpu.isFlagSet(cpu.V_FLAG)) 1 else 0)
-                case "n" => println(if (cpu.isFlagSet(cpu.N_FLAG)) 1 else 0)
-            }
+    }
+
+    def reg(command: Array[String]) {
+        command.size match {
+            case 1 => printRegs()
+            case 2 => printReg(command(1))
+            case 3 => setReg(command(1), parseInt(command(2)))
         }
-        else if (command.size == 3) {
-            command(1) match {
-                case "c" => cpu.setFlag(cpu.C_FLAG, command(2) != "0")
-                case "z" => cpu.setFlag(cpu.Z_FLAG, command(2) != "0")
-                case "i" => cpu.setFlag(cpu.I_FLAG, command(2) != "0")
-                case "d" => cpu.setFlag(cpu.D_FLAG, command(2) != "0")
-                case "b" => cpu.setFlag(cpu.B_FLAG, command(2) != "0")
-                case "u" => cpu.setFlag(cpu.U_FLAG, command(2) != "0")
-                case "v" => cpu.setFlag(cpu.V_FLAG, command(2) != "0")
-                case "n" => cpu.setFlag(cpu.N_FLAG, command(2) != "0")
-            }
+    }
+
+    def printFlags() {
+        println("c: " + (if (cpu.isFlagSet(cpu.C_FLAG)) 1 else 0))
+        println("z: " + (if (cpu.isFlagSet(cpu.Z_FLAG)) 1 else 0))
+        println("i: " + (if (cpu.isFlagSet(cpu.I_FLAG)) 1 else 0))
+        println("d: " + (if (cpu.isFlagSet(cpu.D_FLAG)) 1 else 0))
+        println("b: " + (if (cpu.isFlagSet(cpu.B_FLAG)) 1 else 0))
+        println("u: " + (if (cpu.isFlagSet(cpu.U_FLAG)) 1 else 0))
+        println("v: " + (if (cpu.isFlagSet(cpu.V_FLAG)) 1 else 0))
+        println("n: " + (if (cpu.isFlagSet(cpu.N_FLAG)) 1 else 0))
+    }
+
+    def printFlag(flag: String) {
+        flag match {
+            case "c" => println(if (cpu.isFlagSet(cpu.C_FLAG)) 1 else 0)
+            case "z" => println(if (cpu.isFlagSet(cpu.Z_FLAG)) 1 else 0)
+            case "i" => println(if (cpu.isFlagSet(cpu.I_FLAG)) 1 else 0)
+            case "d" => println(if (cpu.isFlagSet(cpu.D_FLAG)) 1 else 0)
+            case "b" => println(if (cpu.isFlagSet(cpu.B_FLAG)) 1 else 0)
+            case "u" => println(if (cpu.isFlagSet(cpu.U_FLAG)) 1 else 0)
+            case "v" => println(if (cpu.isFlagSet(cpu.V_FLAG)) 1 else 0)
+            case "n" => println(if (cpu.isFlagSet(cpu.N_FLAG)) 1 else 0)
+        }
+    }
+
+    def setFlag(flag: String, value: Boolean) {
+        flag match {
+            case "c" => cpu.setFlag(cpu.C_FLAG, value)
+            case "z" => cpu.setFlag(cpu.Z_FLAG, value)
+            case "i" => cpu.setFlag(cpu.I_FLAG, value)
+            case "d" => cpu.setFlag(cpu.D_FLAG, value)
+            case "b" => cpu.setFlag(cpu.B_FLAG, value)
+            case "u" => cpu.setFlag(cpu.U_FLAG, value)
+            case "v" => cpu.setFlag(cpu.V_FLAG, value)
+            case "n" => cpu.setFlag(cpu.N_FLAG, value)
+        }
+    }
+
+    def flag(command: Array[String]) {
+        command.size match {
+            case 1 => printFlags()
+            case 2 => printFlag(command(1))
+            case 3 => setFlag(command(1), command(2) != "0")
         }
     }
 
     // Breakpoints ------------------------------------------------
 
-    def bp() {
-        cpu.breakpoints.foreach(println)
-    }
-
-    def setbp(address: Int) {
-        cpu.breakpoints += address
-    }
-
-    def clearbp(address: Int) {
-        cpu.breakpoints -= address
+    def bp(command: Array[String]) {
+        command.size match {
+            case 1 => breakpoints.foreach(address => println(TWO_BYTE_FORMAT.format(address)))
+            case 2 => if (command(1) == "clear") breakpoints = Set.empty[Int]
+            case 3 => {
+                val address = parseInt(command(2))
+                command(1) match {
+                    case "set"   => breakpoints += address
+                    case "clear" => breakpoints -= address
+                }
+            }
+        }
     }
 
     // File IO ----------------------------------------------------
@@ -397,34 +432,48 @@ object Debugger {
         val out = new BufferedOutputStream(new FileOutputStream(filename))
         out.write(startAddress & 0xFF)
         out.write(startAddress >> 8)
-        out.write(endAddress & 0xFF)
-        out.write(endAddress >> 8)
         for (i <- startAddress to endAddress) out.write(cpu.readByte(i))
         out.close()
     }
 
     def load(filename: String) {
         val in = new BufferedInputStream(new FileInputStream(filename))
-        val startAddress = in.read() | (in.read() << 8)
-        val endAddress = in.read() | (in.read() << 8)
-        for (i <- startAddress to endAddress) cpu.writeByte(i, in.read())
+        var address = in.read() | (in.read() << 8)
+        println("Loading at " + TWO_BYTE_FORMAT.format(address))
+        var c = in.read()
+        while (c != -1) {
+            cpu.writeByte(address, c)
+            address += 1
+            c = in.read()
+        }
         in.close()
     }
 
-    // Run --------------------------------------------------------
+    // Execution --------------------------------------------------
+
+    def run() {
+        var shouldStop = false
+        while (! shouldStop) {
+            cpu.step()
+            if (breakpoints(cpu.c)) shouldStop = true
+        }
+    }
+
+    // Main -------------------------------------------------------
 
     def message() {
+        setColor(CYAN)
         println("+----------------------------------------------------------+")
         println("| Rodriguez Debugger                                       |")
         println("+----------------------------------------------------------+")
+        setColor(RESET)
     }
 
-    def run() {
+    def main(args: Array[String]) {
         message()
-        cpu.breakpointsEnabled = true
         while (! quit) {
             try {
-                command = System.console.readLine("> ").split(" ")
+                val command = System.console.readLine("> ").split(" ")
                 command(0) match {
                     case "quit"    => quit = true
 
@@ -432,24 +481,24 @@ object Debugger {
                     case "irq"     => { cpu.isInterruptRequested = true; cpu.step() }
                     case "nmi"     => { cpu.isNonmaskableInterruptRequested = true; cpu.step() }
 
-                    case "reg"     => reg()
+                    case "reg"     => reg(command)
                     case "pc"      => println(TWO_BYTE_FORMAT.format(cpu.c))
-                    case "flag"    => flag()
+                    case "flag"    => flag(command)
                     case "list"    => list(parseInt(command(1)), parseInt(command(2)))
                     case "cycles"  => println(cpu.cycles)
+
+                    case "ins"     => list(cpu.c, cpu.c)
 
                     case "read"    => read(parseInt(command(1)), parseInt(command(2)))
                     case "write"   => write(parseInt(command(1)), command.slice(2, command.size).map(s => parseInt(s)))
                     case "zero"    => zero(parseInt(command(1)), parseInt(command(2)))
 
-                    case "bp"      => bp()
-                    case "setbp"   => setbp(parseInt(command(1)))
-                    case "clearbp" => clearbp(parseInt(command(1)))
+                    case "bp"      => bp(command)
 
                     case "step"    => cpu.step()
-                    case "run"     => cpu.run()
+                    case "run"     => run()
 
-                    case "save"    => save(command(1), parseInt(command(2)), parseInt(command(2)))
+                    case "save"    => save(command(1), parseInt(command(2)), parseInt(command(3)))
                     case "load"    => load(command(1))
 
                     case _         => println("invalid command")
@@ -459,10 +508,6 @@ object Debugger {
                 case e: Exception => println("error: " + e)
             }
         }
-    }
-
-    def main(args: Array[String]) {
-        run()
     }
 
 }
