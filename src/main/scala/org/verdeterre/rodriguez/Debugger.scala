@@ -53,7 +53,7 @@ object Debugger {
     val INSTRUCTION_PREFIX_FORMAT        = colorCode(YELLOW) + TWO_BYTE_FORMAT + colorCode(RESET) + "    " + colorCode(GREEN) + MNEMONIC_FORMAT + colorCode(RESET)
     val IMPLIED_OPERAND_FORMAT           = ""
     val ACCUMULATOR_OPERAND_FORMAT       = "A"
-    val IMMEDIATE_OPERAND_FORMAT         = "#" + colorCode(MAGENTA) + BYTE_FORMAT + colorCode(RESET)
+    val IMMEDIATE_OPERAND_FORMAT         = colorCode(MAGENTA) + "#" + colorCode(RESET) + BYTE_FORMAT
     val RELATIVE_OPERAND_FORMAT          = colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET)
     val ZERO_PAGE_OPERAND_FORMAT         = colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET)
     val ZERO_PAGE_X_OPERAND_FORMAT       = colorCode(CYAN) + BYTE_FORMAT + colorCode(RESET) + ",X"
@@ -310,10 +310,19 @@ object Debugger {
         while (cursor <= endAddress) println(instructionString)
     }
 
+    def listToOp(startAddress: Int, opcode: Int) {
+        cursor = startAddress
+        while (cpu.readByte(cursor) != opcode) println(instructionString)
+    }
+
     // Memory -----------------------------------------------------
 
     def read(startAddress: Int, endAddress: Int) {
         for (i <- startAddress to endAddress) println(MEMORY_FORMAT.format(i, cpu.readByte(i)))
+    }
+
+    def readFor(startAddress: Int, count: Int) {
+        for (i <- startAddress until startAddress + count) println(MEMORY_FORMAT.format(i, cpu.readByte(i)))
     }
 
     def write(startAddress: Int, values: Array[Int]) {
@@ -436,9 +445,10 @@ object Debugger {
         out.close()
     }
 
-    def load(filename: String) {
-        val in = new BufferedInputStream(new FileInputStream(filename))
+    def load(command: Array[String]) {
+        val in = new BufferedInputStream(new FileInputStream(command(1)))
         var address = in.read() | (in.read() << 8)
+        if (command.size == 3) address = parseInt(command(2))
         println("Loading at " + TWO_BYTE_FORMAT.format(address))
         var c = in.read()
         while (c != -1) {
@@ -477,31 +487,33 @@ object Debugger {
                 command(0) match {
                     case "quit"    => quit = true
 
-                    case "res"     => { cpu.isResetRequested = true; cpu.step() }
-                    case "irq"     => { cpu.isInterruptRequested = true; cpu.step() }
-                    case "nmi"     => { cpu.isNonmaskableInterruptRequested = true; cpu.step() }
+                    case "res"      => { cpu.isResetRequested = true; cpu.step() }
+                    case "irq"      => { cpu.isInterruptRequested = true; cpu.step() }
+                    case "nmi"      => { cpu.isNonmaskableInterruptRequested = true; cpu.step() }
 
-                    case "reg"     => reg(command)
-                    case "pc"      => println(TWO_BYTE_FORMAT.format(cpu.c))
-                    case "flag"    => flag(command)
-                    case "list"    => list(parseInt(command(1)), parseInt(command(2)))
-                    case "cycles"  => println(cpu.cycles)
+                    case "reg"      => reg(command)
+                    case "pc"       => println(TWO_BYTE_FORMAT.format(cpu.c))
+                    case "flag"     => flag(command)
+                    case "list"     => list(parseInt(command(1)), parseInt(command(2)))
+                    case "listtoop" => listToOp(parseInt(command(1)), parseInt(command(2)))
+                    case "cycles"   => println(cpu.cycles)
 
-                    case "ins"     => list(cpu.c, cpu.c)
+                    case "ins"      => list(cpu.c, cpu.c)
 
-                    case "read"    => read(parseInt(command(1)), parseInt(command(2)))
-                    case "write"   => write(parseInt(command(1)), command.slice(2, command.size).map(s => parseInt(s)))
-                    case "zero"    => zero(parseInt(command(1)), parseInt(command(2)))
+                    case "read"     => read(parseInt(command(1)), parseInt(command(2)))
+                    case "readfor"  => readFor(parseInt(command(1)), parseInt(command(2)))
+                    case "write"    => write(parseInt(command(1)), command.slice(2, command.size).map(s => parseInt(s)))
+                    case "zero"     => zero(parseInt(command(1)), parseInt(command(2)))
 
-                    case "bp"      => bp(command)
+                    case "bp"       => bp(command)
 
-                    case "step"    => cpu.step()
-                    case "run"     => run()
+                    case "step"     => cpu.step()
+                    case "run"      => run()
 
-                    case "save"    => save(command(1), parseInt(command(2)), parseInt(command(3)))
-                    case "load"    => load(command(1))
+                    case "save"     => save(command(1), parseInt(command(2)), parseInt(command(3)))
+                    case "load"     => load(command)
 
-                    case _         => println("invalid command")
+                    case _          => println("invalid command")
                 }
             }
             catch {
