@@ -5,20 +5,25 @@ import java.io.BufferedOutputStream
 import java.io.FileInputStream
 import java.io.FileOutputStream
 
+import scala.collection.mutable.Map
+
 object Debugger {
 
     val cpu = new MOS6502(new MemoryMapper)
 
-    var quit = false
     var cursor = 0
 
     var breakpoints = Set.empty[Int]
 
+    val markers = Map.empty[String, Int]
+
     def parseInt(str: String): Int = {
+        val marker = """@([A-Za-z0-9_]+)""".r
         val negativeHex = """(-)\$([0-9A-Za-z]+)""".r
         val hex = """\$([0-9A-Za-z]+)""".r
         val dec = """(-?\d+)""".r
         str match {
+            case marker(name) => markers(name)
             case "pc" => cpu.c
             case negativeHex(sign, hexStr) => Integer.parseInt(sign + hexStr, 16)
             case hex(hexStr) => Integer.parseInt(hexStr, 16)
@@ -346,23 +351,23 @@ object Debugger {
 
     def printReg(reg: String) {
         reg match {
-            case "c" => println(TWO_BYTE_FORMAT.format(cpu.c))
-            case "a" => println(BYTE_FORMAT.format(cpu.a))
-            case "x" => println(BYTE_FORMAT.format(cpu.x))
-            case "y" => println(BYTE_FORMAT.format(cpu.y))
-            case "p" => println(BYTE_FORMAT.format(cpu.p))
-            case "s" => println(BYTE_FORMAT.format(cpu.s))
+            case "pc" => println(TWO_BYTE_FORMAT.format(cpu.c))
+            case "a"  => println(BYTE_FORMAT.format(cpu.a))
+            case "x"  => println(BYTE_FORMAT.format(cpu.x))
+            case "y"  => println(BYTE_FORMAT.format(cpu.y))
+            case "p"  => println(BYTE_FORMAT.format(cpu.p))
+            case "s"  => println(BYTE_FORMAT.format(cpu.s))
         }
     }
 
     def setReg(reg: String, value: Int) {
         reg match {
-            case "c" => cpu.c = value
-            case "a" => cpu.a = value
-            case "x" => cpu.x = value
-            case "y" => cpu.y = value
-            case "p" => cpu.p = value
-            case "s" => cpu.s = value
+            case "pc" => cpu.c = value
+            case "a"  => cpu.a = value
+            case "x"  => cpu.x = value
+            case "y"  => cpu.y = value
+            case "p"  => cpu.p = value
+            case "s"  => cpu.s = value
         }
     }
 
@@ -435,6 +440,18 @@ object Debugger {
         }
     }
 
+    // Markers ----------------------------------------------------
+
+    def mark(command: Array[String]) {
+        command.size match {
+            case 1 => markers.foreach(entry => println(entry._1 + ": " + TWO_BYTE_FORMAT.format(entry._2)))
+            case 3 => command(1) match {
+                case "clear" => markers -= command(2)
+                case _ => markers(command(1)) = parseInt(command(2))
+            }
+        }
+    }
+
     // File IO ----------------------------------------------------
 
     def save(filename: String, startAddress: Int, endAddress: Int) {
@@ -481,6 +498,7 @@ object Debugger {
 
     def main(args: Array[String]) {
         message()
+        var quit = false
         while (! quit) {
             try {
                 val command = System.console.readLine("> ").split(" ")
@@ -504,6 +522,8 @@ object Debugger {
                     case "readfor"  => readFor(parseInt(command(1)), parseInt(command(2)))
                     case "write"    => write(parseInt(command(1)), command.slice(2, command.size).map(s => parseInt(s)))
                     case "zero"     => zero(parseInt(command(1)), parseInt(command(2)))
+
+                    case "mark"     => mark(command)
 
                     case "bp"       => bp(command)
 

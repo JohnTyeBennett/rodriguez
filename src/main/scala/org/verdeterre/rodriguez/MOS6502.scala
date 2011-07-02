@@ -549,8 +549,8 @@ class MOS6502(val memory: MemoryMapper) {
 
     def step() {
         if (isResetRequested) handleReset()
-        else if (isInterruptRequested) handleInterrupt()
         else if (isNonmaskableInterruptRequested) handleNonmaskableInterrupt()
+        else if (isInterruptRequested) handleInterrupt()
         else {
             opcode = readNextByte
             opcode match {
